@@ -1,0 +1,45 @@
+erDiagram
+    TEAM ||--o{ JIRA_PROJECT : owns
+    TEAM ||--o{ GIT_REPO : owns
+    TEAM ||--|| BUSINESS_APPLICATION : owns
+
+    JIRA_PROJECT ||--o{ GIT_REPO : uses
+    JIRA_PROJECT ||--|| BUSINESS_APPLICATION : delivers
+
+    GIT_REPO }o--|| BUSINESS_APPLICATION : supports
+    BUSINESS_APPLICATION ||--o{ APPLICATION_SERVICE : realized_by
+    LEAN_CONTROL_PRODUCT ||--o{ BUSINESS_APPLICATION : governs
+
+    TEAM {
+        string team_id
+        string name
+    }
+
+    JIRA_PROJECT {
+        string project_key
+        string name
+        string jira_backlog_id
+        string risk_story_ids
+    }
+
+    GIT_REPO {
+        string repo_slug
+        string name
+    }
+
+    BUSINESS_APPLICATION {
+        string business_app_sys_id
+        string name
+        string correlation_id
+    }
+
+    APPLICATION_SERVICE {
+        string application_service_sys_id
+        string name
+        string correlation_id
+    }
+
+    LEAN_CONTROL_PRODUCT {
+        string lean_control_service_id
+        string name
+    }
