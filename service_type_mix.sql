@@ -1,5 +1,5 @@
 WITH base AS (
-    -- paste your virtual‑dataset SQL here, exactly as it appears under “View query”
+    -- 1) Paste your virtual‑dataset SQL here, unchanged:
     SELECT
         product_id,
         service_type,
@@ -11,14 +11,15 @@ WITH base AS (
     WHERE …
 )
    , flags AS (
-    -- collapse each product to two flags: has_application, has_technical
+    -- 2) Flag each product for having Application vs. Technical
     SELECT
         product_id,
-        MAX(CASE WHEN service_type = 'a' THEN 1 ELSE 0 END) AS has_application,
-        MAX(CASE WHEN service_type = 'b' THEN 1 ELSE 0 END) AS has_technical
+        MAX(CASE WHEN service_type = 'Application Service' THEN 1 ELSE 0 END) AS has_application,
+        MAX(CASE WHEN service_type = 'Technical Service'   THEN 1 ELSE 0 END) AS has_technical
     FROM base
     GROUP BY product_id
 )
+-- 3) Bucket into exactly three categories and count
 SELECT
     CASE
         WHEN has_application = 1 AND has_technical = 0 THEN 'Application Service only'
@@ -30,7 +31,7 @@ FROM flags
 GROUP BY 1
 ORDER BY
     CASE category
-        WHEN 'Application Service only' THEN 1
-        WHEN 'Technical Service only'     THEN 2
+        WHEN 'Application Service only'     THEN 1
+        WHEN 'Technical Service only'       THEN 2
         WHEN 'Both Application & Technical' THEN 3
         END;
