@@ -19,8 +19,8 @@ Here’s a cleaner view: a compact summary table, followed by each full SQL expe
 SELECT
   p.lean_control_service_id,
   COUNT(DISTINCT si.it_service_instance) AS inst_count
-FROM public.lean_contzol_application AS p
-LEFT JOIN public.vnsfitserviceinstance AS si
+FROM public.lean_control_application AS p
+LEFT JOIN public.vwsfitserviceinstance AS si
   ON p.servicenow_app_id = si.correlation_id
 GROUP BY p.lean_control_service_id
 ORDER BY inst_count DESC;
@@ -33,10 +33,10 @@ SELECT
   p.lean_control_service_id,
   COUNT(DISTINCT ba.business_application_id) AS app_count
 FROM public.lean_contzol_application AS p
-LEFT JOIN public.vnsfitserviceinstance AS si
+LEFT JOIN public.vwsfitserviceinstance AS si
   ON p.servicenow_app_id = si.correlation_id
 LEFT JOIN public.businessapplication AS ba
-  ON si.business_application_sysid = ba.business_application_id
+  ON si.business_application_sysid = ba.business_application_sys_id
 GROUP BY p.lean_control_service_id
 ORDER BY app_count DESC;
 ```
@@ -48,7 +48,7 @@ SELECT
   b.jira_backlog_id,
   COUNT(p.lean_control_service_id) AS prod_count
 FROM public.lean_control_product_backlog_details AS b
-LEFT JOIN public.lean_contzol_application AS p
+LEFT JOIN public.lean_control_application AS p
   ON b.lct_product_id = p.lean_control_service_id
 GROUP BY b.jira_backlog_id
 ORDER BY prod_count DESC;
@@ -62,7 +62,7 @@ SELECT
   COUNT(p.lean_control_service_id) AS prod_count
 FROM public.businessapplication AS ba
 LEFT JOIN public.vnsfitserviceinstance AS si
-  ON ba.business_application_id = si.business_application_sysid
+  ON ba.business_application_sys_id = si.business_application_sysid
 LEFT JOIN public.lean_contzol_application AS p
   ON si.correlation_id = p.servicenow_app_id
 GROUP BY ba.business_application_id
@@ -75,8 +75,8 @@ ORDER BY prod_count DESC;
 SELECT
   p.lean_control_service_id,
   COUNT(DISTINCT si.it_service_instance) AS inst_count
-FROM public.lean_contzol_application AS p
-JOIN public.vnsfitserviceinstance AS si
+FROM public.lean_control_application AS p
+JOIN public.vwsfitserviceinstance AS si
   ON p.servicenow_app_id = si.correlation_id
 GROUP BY p.lean_control_service_id
 HAVING COUNT(DISTINCT si.it_service_instance) > 1;
@@ -91,9 +91,9 @@ SELECT
   COUNT(DISTINCT p.lean_control_service_id)      AS lcp_count,
   COUNT(DISTINCT b.jira_backlog_id)               AS jira_count
 FROM public.businessapplication AS ba
-LEFT JOIN public.vnsfitserviceinstance AS si
+LEFT JOIN public.vwsfitserviceinstance AS si
   ON ba.business_application_id = si.business_application_sysid
-LEFT JOIN public.lean_contzol_application AS p
+LEFT JOIN public.lean_control_application AS p
   ON si.correlation_id = p.servicenow_app_id
 LEFT JOIN public.lean_control_product_backlog_details AS b
   ON p.lean_control_service_id = b.lct_product_id
