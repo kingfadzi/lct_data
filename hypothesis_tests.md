@@ -30,13 +30,14 @@ ORDER BY inst_count DESC;
 
 ```sql
 SELECT
-  p.lean_control_service_id,
-  COUNT(DISTINCT ba.business_application_id) AS app_count
+    p.lean_control_service_id,
+    COUNT(DISTINCT ba.correlation_id) AS app_count,
+    STRING_AGG(DISTINCT ba.business_application_id::text, ', ') AS applications
 FROM public.lean_control_application AS p
-LEFT JOIN public.vwsfitserviceinstance AS si
-  ON p.servicenow_app_id = si.correlation_id
-LEFT JOIN public.businessapplication AS ba
-  ON si.business_application_sysid = ba.business_application_sys_id
+         LEFT JOIN public.vwsfitserviceinstance AS si
+                   ON p.servicenow_app_id = si.correlation_id
+         LEFT JOIN public.businessapplication AS ba
+                   ON si.business_application_sysid = ba.business_application_sys_id
 GROUP BY p.lean_control_service_id
 ORDER BY app_count DESC;
 ```
