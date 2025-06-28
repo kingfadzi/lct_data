@@ -188,3 +188,43 @@ ORDER BY inst_count, app_count;
 
 **Implications:**  
 *Placeholder for implications based on observations.*
+
+## H6: Some Lean Control Products are only linked to Technical Services and are not associated with any Business Applications or Application Services.
+
+**Cardinality Table:**
+
+| From Entity           | To Entity          | Relationship Name | Cardinality | Notes                                                                 | Example Records              |
+|-----------------------|--------------------|-------------------|-------------|-----------------------------------------------------------------------|------------------------------|
+| Lean Control Product  | Technical Service  | applies_to        | 1 → *       | These control products govern technical infrastructure, without mapping to business or app services. | LCSERV-999 → TS-010, TS-020 |
+
+**Objective:**  
+Determine whether certain Lean Control Products are strictly scoped to Technical Services, i.e., they have no associated Business Applications or Application Services.
+
+**Experiment SQL:**
+```sql
+SELECT
+  lean_app.lean_control_service_id,
+  COUNT(DISTINCT business_service.service) AS tech_service_count,
+  COUNT(DISTINCT service_instance.it_service_instance) AS app_service_count,
+  COUNT(DISTINCT business_app.business_application_id) AS biz_app_count,
+  STRING_AGG(DISTINCT business_service.service, ', ') AS tech_services
+FROM public.lean_control_application lean_app
+LEFT JOIN public.vwsfitserviceinstance service_instance
+  ON lean_app.servicenow_app_id = service_instance.correlation_id
+LEFT JOIN public.businessapplication business_app
+  ON service_instance.business_application_sysid = business_app.business_application_id
+LEFT JOIN public.itbusinessservice business_service
+  ON lean_app.servicenow_app_id = business_service.service_correlation_id
+WHERE business_service.category = 'Technical Service'
+GROUP BY lean_app.lean_control_service_id
+HAVING 
+  COUNT(DISTINCT business_app.business_application_id) = 0 AND
+  COUNT(DISTINCT service_instance.it_service_instance) = 0
+ORDER BY tech_service_count DESC;
+```
+
+**Observations:**  
+*Placeholder for observations from the experiment.*
+
+**Implications:**  
+*Placeholder for implications based on observations.*
