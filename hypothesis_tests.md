@@ -17,13 +17,13 @@ Here’s a cleaner view: a compact summary table, followed by each full SQL expe
 
 ```sql
 SELECT
-  p.lean_control_service_id,
-  COUNT(DISTINCT si.it_service_instance) AS inst_count
-FROM public.lean_control_application AS p
-LEFT JOIN public.vwsfitserviceinstance AS si
-  ON p.servicenow_app_id = si.correlation_id
-GROUP BY p.lean_control_service_id
-ORDER BY inst_count DESC;
+    b.jira_backlog_id,
+    COUNT(p.lean_control_service_id) AS lcp_count
+FROM public.lean_control_product_backlog_details AS b
+         LEFT JOIN public.lean_control_application AS p
+                   ON b.lct_product_id = p.lean_control_service_id
+GROUP BY b.jira_backlog_id
+ORDER BY lcp_count DESC;
 ```
 
 #### H2: LCP → One Business Application
