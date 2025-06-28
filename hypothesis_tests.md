@@ -203,23 +203,23 @@ Determine whether certain Lean Control Products are strictly scoped to Technical
 **Experiment SQL:**
 ```sql
 SELECT
-  lean_app.lean_control_service_id,
-  COUNT(DISTINCT business_service.service) AS tech_service_count,
-  COUNT(DISTINCT service_instance.it_service_instance) AS app_service_count,
-  COUNT(DISTINCT business_app.business_application_id) AS biz_app_count,
-  STRING_AGG(DISTINCT business_service.service, ', ') AS tech_services
+    lean_app.lean_control_service_id,
+    COUNT(DISTINCT business_service.service) AS tech_service_count,
+    COUNT(DISTINCT service_instance.it_service_instance) AS app_service_count,
+    COUNT(DISTINCT business_app.correlation_id) AS biz_app_count,
+    STRING_AGG(DISTINCT business_service.service, ', ') AS tech_services
 FROM public.lean_control_application lean_app
-LEFT JOIN public.vwsfitserviceinstance service_instance
-  ON lean_app.servicenow_app_id = service_instance.correlation_id
-LEFT JOIN public.businessapplication business_app
-  ON service_instance.business_application_sysid = business_app.business_application_id
-LEFT JOIN public.itbusinessservice business_service
-  ON lean_app.servicenow_app_id = business_service.service_correlation_id
+         LEFT JOIN public.vwsfitserviceinstance service_instance
+                   ON lean_app.servicenow_app_id = service_instance.correlation_id
+         LEFT JOIN public.itbusinessapplication business_app
+                   ON service_instance.business_application_sysid = business_app.business_application_id
+         LEFT JOIN public.itbusinessservice business_service
+                   ON lean_app.servicenow_app_id = business_service.service_correlation_id
 WHERE business_service.category = 'Technical Service'
 GROUP BY lean_app.lean_control_service_id
-HAVING 
-  COUNT(DISTINCT business_app.business_application_id) = 0 AND
-  COUNT(DISTINCT service_instance.it_service_instance) = 0
+HAVING
+    COUNT(DISTINCT business_app.correlation_id) = 0 AND
+    COUNT(DISTINCT service_instance.it_service_instance) = 0
 ORDER BY tech_service_count DESC;
 ```
 
