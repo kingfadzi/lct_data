@@ -32,7 +32,7 @@ ORDER BY inst_count DESC;
 SELECT
   p.lean_control_service_id,
   COUNT(DISTINCT ba.business_application_id) AS app_count
-FROM public.lean_contzol_application AS p
+FROM public.lean_control_application AS p
 LEFT JOIN public.vwsfitserviceinstance AS si
   ON p.servicenow_app_id = si.correlation_id
 LEFT JOIN public.businessapplication AS ba
