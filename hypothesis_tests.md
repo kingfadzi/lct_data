@@ -104,3 +104,25 @@ HAVING
   COUNT(DISTINCT si.it_service_instance) <> COUNT(DISTINCT p.lean_control_service_id)
   OR COUNT(DISTINCT p.lean_control_service_id) <> COUNT(DISTINCT b.jira_backlog_id);
 ```
+
+```sql
+SELECT
+  inst_count,
+  app_count,
+  COUNT(*) AS lcp_count
+FROM (
+  SELECT
+    p.lean_control_service_id,
+    COUNT(DISTINCT si.it_service_instance)    AS inst_count,
+    COUNT(DISTINCT ba.correlation_id)          AS app_count
+  FROM public.lean_control_application AS p
+  LEFT JOIN public.vwsfitserviceinstance AS si
+    ON p.servicenow_app_id = si.correlation_id
+  LEFT JOIN public.businessapplication AS ba
+    ON si.business_application_sysid = ba.business_application_sys_id
+  GROUP BY p.lean_control_service_id
+) AS sub
+GROUP BY inst_count, app_count
+ORDER BY inst_count, app_count;
+
+```
