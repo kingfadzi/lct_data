@@ -249,10 +249,10 @@ SELECT
     COUNT(DISTINCT business_app.correlation_id) AS biz_app_count,
     STRING_AGG(DISTINCT business_app.correlation_id, ', ') AS business_apps
 FROM public.lean_control_application lean_app
-LEFT JOIN public.vwsfitserviceinstance service_instance
-    ON lean_app.servicenow_app_id = service_instance.correlation_id
-LEFT JOIN public.vwsfbusinessapplication business_app
-    ON service_instance.business_application_sysid = business_app.correlation_id
+         LEFT JOIN public.vwsfitserviceinstance service_instance
+                   ON lean_app.servicenow_app_id = service_instance.correlation_id
+         LEFT JOIN public.vwsfbusinessapplication business_app
+                   ON service_instance.business_application_sysid = business_app.business_application_sys_id
 WHERE service_instance.it_service_instance IS NOT NULL
 GROUP BY lean_app.lean_control_service_id
 HAVING COUNT(DISTINCT service_instance.it_service_instance) > 0
