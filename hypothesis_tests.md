@@ -228,3 +228,38 @@ ORDER BY tech_service_count DESC;
 
 **Implications:**  
 *Placeholder for implications based on observations.*
+
+## H7: Lean Control Products linked to Application Services are generally also associated with Business Applications.
+
+**Cardinality Table:**
+
+| From Entity           | To Entity            | Relationship Name | Cardinality | Notes                                                                            | Example Records                         |
+|-----------------------|----------------------|-------------------|-------------|----------------------------------------------------------------------------------|------------------------------------------|
+| Lean Control Product  | Application Service  | applies_to        | * → *       | LCPs may govern multiple environments.                                           | LCSERV-120 → Dev-Instance, QA-Instance   |
+| Application Service   | Business Application | belongs_to        | * → 1       | Application Services typically map to one Business Application.                 | QA-Instance → ITBA-103                   |
+
+**Objective:**  
+Evaluate whether Lean Control Products that are applied to Application Services are indirectly also connected to Business Applications — via the service instance relationship.
+
+**Experiment SQL:**
+```sql
+SELECT
+    lean_app.lean_control_service_id,
+    COUNT(DISTINCT service_instance.it_service_instance) AS app_service_count,
+    COUNT(DISTINCT business_app.correlation_id) AS biz_app_count,
+    STRING_AGG(DISTINCT business_app.correlation_id, ', ') AS business_apps
+FROM public.lean_control_application lean_app
+LEFT JOIN public.vwsfitserviceinstance service_instance
+    ON lean_app.servicenow_app_id = service_instance.correlation_id
+LEFT JOIN public.vwsfbusinessapplication business_app
+    ON service_instance.business_application_sysid = business_app.correlation_id
+WHERE service_instance.it_service_instance IS NOT NULL
+GROUP BY lean_app.lean_control_service_id
+HAVING COUNT(DISTINCT service_instance.it_service_instance) > 0
+ORDER BY biz_app_count DESC;
+```
+**Observations:**  
+*Placeholder for observations from the experiment.*
+
+**Implications:**  
+*Placeholder for implications based on observations.*
