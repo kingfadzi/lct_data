@@ -126,3 +126,26 @@ GROUP BY inst_count, app_count
 ORDER BY inst_count, app_count;
 
 ```
+
+```sql
+WITH counts AS (
+  SELECT
+    ba.business_application_id AS itba,
+    COUNT(DISTINCT si.it_service_instance)   AS inst_count,
+    COUNT(DISTINCT p.lean_control_service_id) AS lcp_count
+  FROM public.businessapplication AS ba
+  LEFT JOIN public.vnsfitserviceinstance AS si
+    ON ba.business_application_id = si.business_application_sysid
+  LEFT JOIN public.lean_control_application AS p
+    ON si.correlation_id = p.servicenow_app_id
+  GROUP BY ba.business_application_id
+)
+SELECT
+  itba,
+  inst_count,
+  lcp_count,
+  CASE WHEN inst_count = lcp_count THEN '✔️ matches'
+       ELSE '❌ mismatch' END AS status
+FROM counts
+ORDER BY status, itba;
+```
