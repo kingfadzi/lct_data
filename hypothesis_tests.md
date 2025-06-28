@@ -87,7 +87,7 @@ Verify no projects are unlinked or linked to multiple LCPs.
 - Join on `b.lct_product_id = p.lean_control_service_id`
 
 **Experiment SQL:**
-\```sql
+```sql
 -- Distribution of distinct LCPs per Jira Project
 SELECT
 b.jira_backlog_id,
@@ -109,7 +109,7 @@ ON b.lct_product_id = p.lean_control_service_id
 GROUP BY b.jira_backlog_id
 HAVING COUNT(DISTINCT p.lean_control_service_id) <> 1
 ORDER BY distinct_lcp_count DESC;
-\```
+```
 
 **Expected Outcome & Interpretation:**
 - All `distinct_lcp_count = 1` supports H3.
