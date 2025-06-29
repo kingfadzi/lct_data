@@ -211,8 +211,8 @@ SELECT
 FROM public.lean_control_application lean_app
          LEFT JOIN public.vwsfitserviceinstance service_instance
                    ON lean_app.servicenow_app_id = service_instance.correlation_id
-         LEFT JOIN public.vwsfbusinessapplication business_app
-                   ON service_instance.business_application_sysid = business_app.correlation_id
+         LEFT JOIN public.vwsfbusinessapplication business_app                   
+                   ON service_instance.business_application_sysid = business_app.business_application_sys_id
          LEFT JOIN public.vwsfitbusinessservice business_service
                    ON lean_app.servicenow_app_id = business_service.service_correlation_id
 WHERE business_service.category = 'Technical Service'
