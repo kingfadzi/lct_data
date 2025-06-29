@@ -90,7 +90,7 @@ ORDER BY instance_count DESC;
 * Technical Service only Lean Control Products have no Application Service or Business Application links.
 
 **Implications:**  
-* Lean Control Products mapped to Technical Service‑only have no visibility into the actual applications or environments they govern.
+* Lean Control Products mapped to Technical Service have no visibility into the actual applications or environments they govern.
 
 ---
 
@@ -287,7 +287,7 @@ FROM (
     COUNT(DISTINCT si.it_service_instance) AS inst_count,
     COUNT(DISTINCT ba.correlation_id)      AS app_count
   FROM public.lean_control_application AS p
-  LEFT JOIN public.vnsfitserviceinstance AS si
+  LEFT JOIN public.vwsfitserviceinstance AS si
     ON p.servicenow_app_id = si.correlation_id
   LEFT JOIN public.businessapplication AS ba
     ON si.business_application_sysid = ba.business_application_sys_id
