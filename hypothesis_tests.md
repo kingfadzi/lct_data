@@ -20,7 +20,7 @@ SELECT
   COUNT(DISTINCT si.it_service_instance) AS inst_count,
   STRING_AGG(DISTINCT si.it_service_instance, ', ') AS instances
 FROM public.lean_control_application AS p
-LEFT JOIN public.vnsfitserviceinstance AS si
+LEFT JOIN public.vwsfitserviceinstance AS si
   ON p.servicenow_app_id = si.correlation_id
 GROUP BY p.lean_control_service_id
 ORDER BY inst_count DESC;
