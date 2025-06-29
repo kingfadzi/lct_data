@@ -58,32 +58,30 @@ WHERE si.it_service_instance IS NULL;
 ```
 ```sql
 SELECT
-    service_type,
-    COUNT(DISTINCT lean_control_service_id)   AS lcp_count,
-    COUNT(DISTINCT ITBA)                      AS itba_count,
-    COUNT(DISTINCT service_instance)          AS instance_count
+  service_type,
+  COUNT(DISTINCT lean_control_service_id)   AS lcp_count,
+  COUNT(DISTINCT ITBA)                      AS itba_count,
+  COUNT(DISTINCT service_instance)          AS instance_count
 FROM (
-         SELECT
-             lean_app.lean_control_service_id,
-             CASE
-                 WHEN business_service.category = 'Technical Service' THEN 'Technical Service'
-                 WHEN business_service.category IS NULL OR business_service.category = '' THEN 'Application Service'
-                 ELSE business_service.category
-                 END AS service_type,
-             business_app.correlation_id               AS ITBA,
-             service_instance.it_service_instance     AS service_instance
-         FROM public.lean_control_application AS lean_app
-                  LEFT JOIN public.vwsfitserviceinstance    AS service_instance
-                            ON lean_app.servicenow_app_id = service_instance.correlation_id
-                  LEFT JOIN public.itbusinessservice        AS business_service
-                            ON lean_app.servicenow_app_id = business_service.service_correlation_id
-                  LEFT JOIN public.businessapplication      AS business_app
-                            ON service_instance.business_application_sysid = business_app.business_application_sys_id
-     ) AS sub
+  SELECT
+    lean_app.lean_control_service_id,
+    CASE
+      WHEN business_service.category = 'Technical Service' THEN 'Technical Service'
+      WHEN business_service.category IS NULL OR business_service.category = '' THEN 'Application Service'
+      ELSE business_service.category
+    END AS service_type,
+    business_app.correlation_id               AS ITBA,
+    service_instance.it_service_instance     AS service_instance
+  FROM public.lean_control_application     AS lean_app
+  LEFT JOIN public.vwsfitserviceinstance   AS service_instance
+    ON lean_app.servicenow_app_id = service_instance.correlation_id
+  LEFT JOIN public.vwsfitbusinessservice   AS business_service
+    ON lean_app.servicenow_app_id = business_service.service_correlation_id
+  LEFT JOIN public.vwsfbusinessapplication AS business_app
+    ON service_instance.business_application_sysid = business_app.business_application_sys_id
+) AS sub
 GROUP BY service_type
 ORDER BY instance_count DESC;
-
-
 ```
 
 **Observations:**  
