@@ -1,11 +1,17 @@
 # Hypotheses & Design Questions
 
+![Service types](./service_types.png)
+
 ---
 
 ## H1: Each Lean Control Product is linked to at least one service type—either one or more Application Service instances or one or more Technical Service instances—and if it’s only linked to Technical Services, it has no Application Service or Business Application mappings.
 * All Lean Control Products map to either Application Services or are linked to Technical Services.
 * 55% of Lean Control Products are mapped Application Services; 45% (≈ 644 Lean Control Products) are linked to Technical Services.
 * Lean Control Products linked to Technical Services do not have links the Business Applications they control therefore lack visibility into the applications and business contexts they cover.
+
+#### Related data:
+* [application_services](./application_service.csv)
+* [technical_services](./technical_service.csv)
 
 ### Design Questions:
 * HMW map Lean Control Products linked to Technical Services to their missing Application and Application Service contexts despite incomplete data in the system?
@@ -25,7 +31,7 @@
 
 ---
 
-## H3: Every Jira Project should track exactly one Lean Control Product
+## H3: Every Jira Project tracks exactly one Lean Control Product.
 * A strict one-to-one mapping between Jira backlogs and Lean Control Products ensures consistent governance.
 * Of all projects, 1,221 correctly track one Lean Control Product; 122 have no Lean Control Product link; 3 track multiple Lean Control Products.
 * The 125 anomalous projects break the governance model and risk untracked work or duplicated scopes.
