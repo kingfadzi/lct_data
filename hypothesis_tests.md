@@ -230,7 +230,6 @@ Find business applications with more than one associated control product.
 ```sql
 SELECT
     CASE
-        WHEN prod_count = 0 THEN '0 LCPs'
         WHEN prod_count = 1 THEN '1 LCP'
         ELSE '>1 LCPs'
         END AS lcp_mapping_category,
@@ -238,17 +237,17 @@ SELECT
 FROM (
          SELECT
              ba.correlation_id AS itba,
-             COUNT(DISTINCT p.lean_control_service_id)     AS prod_count,
-             STRING_AGG(DISTINCT p.lean_control_service_id::text, ', ') AS lcp_ids
+             COUNT(DISTINCT p.lean_control_service_id) AS prod_count
          FROM public.vwsfbusinessapplication AS ba
-                  LEFT JOIN public.vwsfitserviceinstance AS si
-                            ON ba.business_application_sys_id = si.business_application_sysid
-                  LEFT JOIN public.lean_control_application AS p
-                            ON si.correlation_id = p.servicenow_app_id
+                  JOIN public.vwsfitserviceinstance AS si
+                       ON ba.business_application_sys_id = si.business_application_sysid
+                  JOIN public.lean_control_application AS p
+                       ON si.correlation_id = p.servicenow_app_id
          GROUP BY ba.correlation_id
      ) AS sub
 GROUP BY lcp_mapping_category
 ORDER BY lcp_mapping_category;
+
 
 ```
 
