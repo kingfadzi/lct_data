@@ -57,27 +57,38 @@ WHERE si.it_service_instance IS NULL;
 
 ```
 ```sql
+WITH service_mappings AS (
+    SELECT
+        lean_app.lean_control_service_id,
+        service_instance.it_service_instance,
+        CASE
+            WHEN business_service.category = 'Technical Service' THEN 'Technical Service'
+            WHEN business_service.category = 'Application Service' THEN 'Application Service'
+            WHEN business_service.category IS NULL
+                OR business_service.category = '' THEN NULL
+            ELSE business_service.category
+            END AS service_type
+    FROM public.lean_control_application AS lean_app
+             LEFT JOIN public.vwsfitserviceinstance AS service_instance
+                       ON lean_app.servicenow_app_id = service_instance.correlation_id
+             LEFT JOIN public.itbusinessservice AS business_service
+                       ON lean_app.servicenow_app_id = business_service.service_correlation_id
+)
 SELECT
-    p.lean_control_service_id,
-    -- count of Application Service instances
-    COUNT(DISTINCT si.it_service_instance)
-        FILTER (WHERE si.service_classification = 'Application Service')
-    AS app_service_count,
-  -- count of Technical Service instances
-        COUNT(DISTINCT si.it_service_instance)
-            FILTER (WHERE si.service_classification = 'Technical Service')
-    AS tech_service_count,
-  -- total across both classifications
-        ( COUNT(DISTINCT si.it_service_instance)
-            FILTER (WHERE si.service_classification = 'Application Service')
-    + COUNT(DISTINCT si.it_service_instance)
-      FILTER (WHERE si.service_classification = 'Technical Service')
-            ) AS total_service_count
-FROM public.lean_control_application AS p
-         LEFT JOIN public.vwsfitserviceinstance AS si
-                   ON p.servicenow_app_id = si.correlation_id
-GROUP BY p.lean_control_service_id
+    lean_control_service_id,
+    COUNT(DISTINCT CASE WHEN service_type = 'Application Service'
+                            THEN it_service_instance END) AS app_service_count,
+    COUNT(DISTINCT CASE WHEN service_type = 'Technical Service'
+                            THEN it_service_instance END) AS tech_service_count,
+    ( COUNT(DISTINCT CASE WHEN service_type = 'Application Service'
+                              THEN it_service_instance END)
+        + COUNT(DISTINCT CASE WHEN service_type = 'Technical Service'
+                                  THEN it_service_instance END)
+        ) AS total_service_count
+FROM service_mappings
+GROUP BY lean_control_service_id
 ORDER BY total_service_count DESC;
+
 
 
 ```
