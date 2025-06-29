@@ -20,7 +20,7 @@
 
 ---
 
-## H2: Lean Control Products vary in how many Business Applications they govern: some govern none, some exactly one, and some span multiple applications.
+## H2: Lean Control Products vary in how many Business Applications they control: some control none, some exactly one, and some span multiple applications.
 * 399 Lean Control Products control 0 Business Applications; 449 control exactly 1; 317 control more than 1.
 * Lean Control Products mapped to 0 apps mean: No visibility onto any specific application or mean data integrity issues.
 * Mapping 1 Lean Control Product to 1 Business Application is Clear and easy to manage, but will break down for multi‑component or multi‑regional apps (front end, back end, API, APAC/EU, etc.).
