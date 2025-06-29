@@ -341,10 +341,11 @@ ORDER BY tech_service_count DESC;
 ```
 
 **Observations:**  
-*Placeholder for observations from the experiment.*
+* All Lean Control Products that are linked to Technical Services have no associated Business Applications or Application Services.
 
 **Implications:**  
-*Placeholder for implications based on observations.*
+* Lean Control Products mapped to Technical Service have no visibility into the actual applications or environments they govern.
+* We need to investigate how the retrospectively identify and map the Applications and Application Services for the 644 Lean Control Products that are linked to Technical Services.
 
 ## H7: Lean Control Products linked to Application Services are generally also associated with Business Applications.
 
@@ -376,7 +377,15 @@ HAVING COUNT(DISTINCT service_instance.it_service_instance) > 0
 ORDER BY biz_app_count DESC;
 ```
 **Observations:**  
-*Placeholder for observations from the experiment.*
+* Most LCPs with Application Service links also have Business Application mappings.
+* Many govern only 1–2 Business Applications and a handful of service instances.
+* A few outliers govern very large scopes (e.g., one LCP with 108 instances and 46 Business Applications; others with >35 apps and >40 instances).
+* Some LCPs have service instances but 0 Business Application mappings—likely data anomalies.
 
 **Implications:**  
-*Placeholder for implications based on observations.*
+*  Outliers should be decomposed by domain—review each component and deployment environment, and map them to their correct ITBAs. 
+*  Since applications can span one or multiple ITBAs, an LCP must support single and multi component scenarios and multi regional deployments.
+
+
+
+
