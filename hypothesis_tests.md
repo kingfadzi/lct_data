@@ -87,7 +87,7 @@ ORDER BY instance_count DESC;
 
 **Observations:**  
 * 55% of Lean Control Products map to Application Services; 45% are Technical Service.
-* Technical Service only Lean Control Products have no Application Service or Business Application links.
+* Lean Control Products mapped Technical Service have no Application Service or Business Application links.
 
 **Implications:**  
 * Lean Control Products mapped to Technical Service have no visibility into the actual applications or environments they govern.
