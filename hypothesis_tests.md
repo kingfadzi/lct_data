@@ -229,15 +229,15 @@ Find business applications with more than one associated control product.
 **Experiment SQL:**
 ```sql
 SELECT
-  ba.business_application_id AS itba,
+  ba.correlation_id AS itba,
   COUNT(p.lean_control_service_id) AS prod_count,
   STRING_AGG(p.lean_control_service_id, ', ') AS lcp_ids
-FROM public.businessapplication AS ba
-LEFT JOIN public.vnsfitserviceinstance AS si
-  ON ba.business_application_id = si.business_application_sysid
+FROM public.vwsfbusinessapplication AS ba
+LEFT JOIN public.vwsfitserviceinstance AS si
+  ON ba.business_application_sys_id = si.business_application_sysid
 LEFT JOIN public.lean_control_application AS p
   ON si.correlation_id = p.servicenow_app_id
-GROUP BY ba.business_application_id
+GROUP BY ba.correlation_id
 HAVING COUNT(p.lean_control_service_id) > 1
 ORDER BY prod_count DESC;
 ```
