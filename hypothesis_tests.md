@@ -11,19 +11,41 @@
 | Lean Control Product  | Application Service  | applies_to        | 1 → *       | A product may be applied across multiple deployment instances (e.g., dev, prod). | LCSERV-101 → Dev-Instance, Prod-Instance |
 
 **Objective:**  
-Determine how many environments each control product is deployed to.
+Verify that every Lean Control Product has at least one associated Application Service instance.
 
 **Experiment SQL:**
 ```sql
 SELECT
   p.lean_control_service_id,
-  COUNT(DISTINCT si.it_service_instance) AS inst_count,
-  STRING_AGG(DISTINCT si.it_service_instance, ', ') AS instances
+  COUNT(DISTINCT si.it_service_instance) AS instance_count,
+  STRING_AGG(DISTINCT si.it_service_instance, ', ') AS service_instances
 FROM public.lean_control_application AS p
 LEFT JOIN public.vwsfitserviceinstance AS si
   ON p.servicenow_app_id = si.correlation_id
 GROUP BY p.lean_control_service_id
 ORDER BY inst_count DESC;
+```
+```sql
+WITH instance_counts AS (
+  SELECT
+    p.lean_control_service_id,
+    COUNT(DISTINCT si.it_service_instance) AS instance_count
+  FROM public.lean_control_application AS p
+  LEFT JOIN public.vwsfitserviceinstance AS si
+    ON p.servicenow_app_id = si.correlation_id
+  GROUP BY p.lean_control_service_id
+)
+SELECT
+  CASE
+    WHEN instance_count = 0 THEN '0'
+    WHEN instance_count = 1 THEN '1'
+    ELSE '>1'
+  END AS instance_category,
+  COUNT(*) AS product_count
+FROM instance_counts
+GROUP BY instance_category
+ORDER BY instance_category;
+
 ```
 
 **Observations:**  
