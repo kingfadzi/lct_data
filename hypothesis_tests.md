@@ -2,16 +2,17 @@
 
 ---
 
-## H1: Each Lean Control Product maps to one or more Application Service instances.
+## H1: Each Lean Control Product is linked to at least one service type—either one or more Application Service instances or one or more Technical Service instances—and if it’s only linked to Technical Services, it has no Application Service or Business Application mappings.
 
 **Cardinality Table:**
 
-| From Entity           | To Entity            | Relationship Name | Cardinality | Notes                                                        | Example Records                          |
-|-----------------------|----------------------|-------------------|-------------|--------------------------------------------------------------|------------------------------------------|
-| Lean Control Product  | Application Service  | applies_to        | 1 → *       | A product may be applied across multiple deployment instances (e.g., dev, prod). | LCSERV-101 → Dev-Instance, Prod-Instance |
+| From Entity          | To Entity                    | Relationship Name | Cardinality | Notes                                                                | Example                        |
+| -------------------- | ---------------------------- |-------------------| ----------- | -------------------------------------------------------------------- | ------------------------------ |
+| Lean Control Product | Application Service Instance | governs           | 0 → *      | Products may have zero or many application mappings (tech‑only case) | LCP‑001 → ASI‑100, ASI‑101     |
+| Lean Control Product | Technical Service Instance   | governs   | 0 → *      | Products may have zero or many technical mappings (app‑only case)    | LCP‑002 → TechSvc‑A, TechSvc‑B |
 
 **Objective:**  
-Verify that every Lean Control Product has at least one associated Application Service instance.
+Confirm that every Lean Control Product has at least one associated service instance (application or technical), and that any product with only technical mappings has zero application or business‑application links.
 
 **Experiment SQL:**
 ```sql
@@ -85,10 +86,11 @@ ORDER BY instance_count DESC;
 ```
 
 **Observations:**  
-*Placeholder for observations from the experiment.*
+* 55% of Lean Control Products map to Application Services; 45% are Technical Service.
+* Technical Service only Lean Control Products have no Application Service or Business Application links.
 
 **Implications:**  
-*Placeholder for implications based on observations.*
+* Lean Control Products mapped to Technical Service‑only have no visibility into the actual applications or environments they govern.
 
 ---
 
@@ -110,9 +112,9 @@ SELECT
   COUNT(DISTINCT ba.correlation_id) AS app_count,
   STRING_AGG(DISTINCT ba.correlation_id::text, ', ') AS applications
 FROM public.lean_control_application AS p
-LEFT JOIN public.vnsfitserviceinstance AS si
+LEFT JOIN public.vwsfitserviceinstance AS si
   ON p.servicenow_app_id = si.correlation_id
-LEFT JOIN public.businessapplication AS ba
+LEFT JOIN public.vwsfbusinessapplication AS ba
   ON si.business_application_sysid = ba.business_application_sys_id
 GROUP BY p.lean_control_service_id
 HAVING COUNT(DISTINCT ba.correlation_id) > 1
