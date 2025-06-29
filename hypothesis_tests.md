@@ -94,7 +94,7 @@ ORDER BY instance_count DESC;
 
 ---
 
-## H2: Some Lean Control Products govern multiple Business Applications.
+## H2: Lean Control Products vary in how many Business Applications they govern: some govern none, some exactly one, and some span multiple applications.
 
 **Cardinality Table:**
 
@@ -103,7 +103,7 @@ ORDER BY instance_count DESC;
 | Lean Control Product  | Business Application | governs           | 1 → *       | A product may cover risk controls across multiple business apps. | LCSERV-202 → ITBA-005, ITBA-007          |
 
 **Objective:**  
-Identify control products that span multiple business applications.
+Measure and report the number of Lean Control Products in each category—0 apps, 1 app, and >1 apps—to reveal visibility gaps and complexity implications.
 
 **Experiment SQL:**
 ```sql
@@ -145,12 +145,16 @@ ORDER BY app_mapping_category;
 
 ```
 
-
 **Observations:**  
-*Placeholder for observations from the experiment.*
+* 399 Lean Control Products have no Business Application mappings.
+* 449 map to exactly one Business Application.
+* 317 map to more than one Business Application.
+
 
 **Implications:**  
-*Placeholder for implications based on observations.*
+* 0 apps: No visibility onto any specific application.
+* 1 app: Clear and easy to manage, but will break down for multi‑component or multi‑regional apps (front end, back end, API, APAC/EU, etc.).
+* 1+ apps: Fits complex or regionalized applications, but keeping traceability requires extending the data model to record both the Business Application ID and the Application Service when applying controls.
 
 ---
 
@@ -179,16 +183,26 @@ ORDER BY distinct_lcp_count DESC;
 
 **Experiment SQL (anomalies):**
 ```sql
+WITH project_lcp_counts AS (
+    SELECT
+        b.jira_backlog_id,
+        COUNT(DISTINCT p.lean_control_service_id) AS lcp_count
+    FROM public.lean_control_product_backlog_details AS b
+             LEFT JOIN public.lean_control_application AS p
+                       ON b.lct_product_id = p.lean_control_service_id
+    GROUP BY b.jira_backlog_id
+)
 SELECT
-  b.jira_backlog_id,
-  COUNT(DISTINCT p.lean_control_service_id) AS distinct_lcp_count,
-  STRING_AGG(DISTINCT p.lean_control_service_id, ', ') AS lcp_ids
-FROM public.lean_control_product_backlog_details AS b
-LEFT JOIN public.lean_control_application AS p
-  ON b.lct_product_id = p.lean_control_service_id
-GROUP BY b.jira_backlog_id
-HAVING COUNT(DISTINCT p.lean_control_service_id) <> 1
-ORDER BY distinct_lcp_count DESC;
+    CASE
+        WHEN lcp_count = 0 THEN '0 LCPs'
+        WHEN lcp_count = 1 THEN '1 LCP'
+        ELSE '>1 LCPs'
+        END AS lcp_mapping_category,
+    COUNT(*) AS project_count
+FROM project_lcp_counts
+GROUP BY lcp_mapping_category
+ORDER BY lcp_mapping_category;
+
 ```
 
 **Observations:**  
