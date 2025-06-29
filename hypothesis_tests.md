@@ -298,10 +298,13 @@ ORDER BY inst_count, app_count;
 ```
 
 **Observations:**  
-*Placeholder for observations from the experiment.*
+* Most LCPs cluster at low app and instance counts (median = 1).
+* A few outliers exist (e.g. one LCP with 46 apps and 108 instances).
+* The long tail of rare (inst_count, app_count) configurations indicates high variability.
 
 **Implications:**  
-*Placeholder for implications based on observations.*
+* LCPs with 0 apps and 0 instances likely reflect misconfigurations—referential integrity should be checked.
+* High-count outliers pose governance and audit risks; for composite or multi-regional applications, the data model may need additional metadata (e.g. component identifiers or region tags) to maintain clear traceability.
 
 ## H6: Some Lean Control Products are only linked to Technical Services and are not associated with any Business Applications or Application Services.
 
