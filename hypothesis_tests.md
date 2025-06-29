@@ -59,18 +59,24 @@ WHERE si.it_service_instance IS NULL;
 ```sql
 WITH service_mappings AS (
     SELECT
-        p.lean_control_service_id,
-        si.it_service_instance,
+        lean_app.lean_control_service_id,
+        service_instance.it_service_instance,
         CASE
-            WHEN bs.category = 'Technical Service' THEN 'Technical Service'
-            WHEN bs.category IS NULL OR bs.category = '' THEN 'Application Service'
-            ELSE bs.category
+            WHEN business_service.category = 'Technical Service' THEN 'Technical Service'
+            WHEN business_service.category IS NULL OR business_service.category = '' THEN 'Application Service'
+            ELSE business_service.category
             END AS service_type
-    FROM public.lean_control_application AS p
-             LEFT JOIN public.vwsfitserviceinstance AS si
-                       ON p.servicenow_app_id = si.correlation_id
-             LEFT JOIN public.itbusinessservice AS bs
-                       ON si.it_business_service = bs.service_correlation_id
+    FROM public.lean_control_application AS lean_app
+             LEFT JOIN public.vwsfitserviceinstance AS service_instance
+                       ON lean_app.servicenon_app_id = service_instance.correlation_id
+             LEFT JOIN public.itbusinessservice AS business_service
+                       ON lean_app.servicenon_app_id = business_service.service_correlation_id
+             LEFT JOIN public.lean_control_product_backlog_details AS backlog
+                       ON lean_app.lean_control_service_id = backlog.lct_product_id
+             LEFT JOIN public.businessapplication AS business_app
+                       ON service_instance.business_application_sysid = business_app.business_application_id
+             LEFT JOIN public.mh_lct_tc_details AS tc_details
+                       ON lean_app.lean_control_service_id = tc_details.lct_service_id
 )
 SELECT
     lean_control_service_id,
@@ -82,7 +88,6 @@ SELECT
 FROM service_mappings
 GROUP BY lean_control_service_id
 ORDER BY total_service_count DESC;
-
 
 ```
 
