@@ -10,8 +10,8 @@
 * Lean Control Products linked to Technical Services do not have links the Business Applications they control therefore lack visibility into the applications and business contexts they cover.
 
 #### Related data:
-* [application_services](./application_service.csv)
-* [technical_services](./technical_service.csv)
+* [application_services](./application_services.csv)
+* [technical_services](./technical_services.csv)
 
 ### Design Questions:
 * HMW map Lean Control Products linked to Technical Services to their missing Application and Application Service contexts despite incomplete data in the system?
