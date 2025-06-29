@@ -206,11 +206,13 @@ ORDER BY lcp_mapping_category;
 ```
 
 **Observations:**  
-*Placeholder for observations from the experiment.*
+* 122 Jira projects have no linked Lean Control Product.
+* 1,221 projects map to exactly 1 Lean Control Product.
+* 3 projects map to more than 1 Lean Control Product.
 
 **Implications:**  
-*Placeholder for implications based on observations.*
-
+* Projects with 0 or >1 LCPs deviate from the expected 1:1 mapping and must be investigated to understand why they exist.
+* Overall consistency is high, but these anomalies highlight areas for data‑quality review.
 ---
 
 ## H4: Some Business Applications are governed by multiple Lean Control Products.
