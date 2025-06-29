@@ -120,6 +120,31 @@ GROUP BY p.lean_control_service_id
 HAVING COUNT(DISTINCT ba.correlation_id) > 1
 ORDER BY app_count DESC;
 ```
+```sql
+WITH app_counts AS (
+  SELECT
+    p.lean_control_service_id,
+    COUNT(DISTINCT ba.correlation_id) AS app_count
+  FROM public.lean_control_application AS p
+  LEFT JOIN public.vwsfitserviceinstance AS si
+    ON p.servicenow_app_id = si.correlation_id
+  LEFT JOIN public.vwsfbusinessapplication AS ba
+    ON si.business_application_sysid = ba.business_application_sys_id
+  GROUP BY p.lean_control_service_id
+)
+SELECT
+  CASE
+    WHEN app_count = 0 THEN '0 apps'
+    WHEN app_count = 1 THEN '1 app'
+    ELSE '> 1 apps'
+  END AS app_mapping_category,
+  COUNT(*) AS lcp_count
+FROM app_counts
+GROUP BY app_mapping_category
+ORDER BY app_mapping_category;
+
+```
+
 
 **Observations:**  
 *Placeholder for observations from the experiment.*
