@@ -56,7 +56,28 @@ LEFT JOIN public.vwsfitserviceinstance AS si
 WHERE si.it_service_instance IS NULL;
 
 ```
+```sql
+SELECT
+  p.lean_control_service_id,
+  -- count of linked Application Service instances
+  COUNT(DISTINCT si.it_service_instance)
+    FILTER (WHERE si.service_type = 'application') AS app_service_count,
+  -- count of linked Technical Service instances
+  COUNT(DISTINCT si.it_service_instance)
+    FILTER (WHERE si.service_type = 'technical')   AS tech_service_count,
+  -- overall total of distinct service instances
+  (COUNT(DISTINCT si.it_service_instance)
+     FILTER (WHERE si.service_type = 'application')
+   + COUNT(DISTINCT si.it_service_instance)
+     FILTER (WHERE si.service_type = 'technical')
+  ) AS total_service_count
+FROM public.lean_control_application AS p
+LEFT JOIN public.vwsfitserviceinstance AS si
+  ON p.servicenow_app_id = si.correlation_id
+GROUP BY p.lean_control_service_id
+ORDER BY total_service_count DESC;
 
+```
 
 **Observations:**  
 *Placeholder for observations from the experiment.*
