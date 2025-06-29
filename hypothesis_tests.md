@@ -215,16 +215,17 @@ ORDER BY lcp_mapping_category;
 * Overall consistency is high, but these anomalies highlight areas for data‑quality review.
 ---
 
-## H4: Some Business Applications are governed by multiple Lean Control Products.
+## H4: Each Business Application is governed by exactly one Lean Control Product.
 
 **Cardinality Table:**
 
 | From Entity          | To Entity             | Relationship Name | Cardinality | Notes                                               | Example Records                          |
 |----------------------|-----------------------|-------------------|-------------|-----------------------------------------------------|------------------------------------------|
-| Business Application | Lean Control Product  | governed_by       | 1 → *       | An application may require multiple control products for different risk areas. | ITBA-009 → LCSERV-310, LCSERV-311, LCSERV-312 |
+| Business Application | Lean Control Product  | governed_by       | 1 → 1       | Each application maps to exactly one control product. |  |
 
 **Objective:**  
-Find business applications with more than one associated control product.
+* How many applications have a single Lean Control Product mapping
+* How many have multiple Lean Control Product mappings
 
 **Experiment SQL:**
 ```sql
@@ -252,11 +253,14 @@ ORDER BY lcp_mapping_category;
 ```
 
 **Observations:**  
-*Placeholder for observations from the experiment.*
+* 1 LCP: 1,713 Business Applications are governed by exactly one Lean Control Product.
+* 1+ LCPs: 203 Business Applications are governed by multiple Lean Control Products.
+
 
 **Implications:**  
-*Placeholder for implications based on observations.*
-
+* Predominant 1:1 mapping: Roughly 89% of applications follow the simple, one-to-one Lean Control Product to Application mapping model, making their control lifecycles straightforward to manage.
+* These 203 mappings appear anomalous and warrant investigation.
+* We also need to understand how the mapping of 1 Lean Control Product to one itba applies to larger applications made up of multiple components each with its own ITBA.
 ---
 
 ## H5: Most Lean Control Products are actively linked to applications and environments.
