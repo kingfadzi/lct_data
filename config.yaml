@@ -9,5 +9,3 @@ sql:
     SELECT *
     FROM lean_control_product
     WHERE lean_control_service_id = %s
-  params:
-    - lcp_id

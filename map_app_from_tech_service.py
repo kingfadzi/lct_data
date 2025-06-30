@@ -27,14 +27,11 @@ def get_db_connection(cfg):
     )
 
 
-def query_lcp(conn, cfg, lcp_id):
-    """Execute SQL from config against the database for the given ID."""
-    query_cfg = cfg.get('sql', {})
-    sql = query_cfg.get('query', '')
-    params = query_cfg.get('params', ['lcp_id'])
-
-    # Build parameters tuple in order defined in params list
-    values = tuple(lcp_id if p == 'lcp_id' else None for p in params)
+def query_lcp(conn, base_query, where_clauses, values):
+    """Execute dynamically constructed SQL query."""
+    sql = base_query
+    if where_clauses:
+        sql += " WHERE " + " AND ".join(where_clauses)
 
     with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
         cur.execute(sql, values)
@@ -43,31 +40,64 @@ def query_lcp(conn, cfg, lcp_id):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Query a Lean Control Product and return JSON output based on YAML config."
-    )
-    parser.add_argument(
-        'lcp_id',
-        help='The Lean Control Product service ID to query.'
+        description="Query Lean Control Products with dynamic filters from YAML config."
     )
     parser.add_argument(
         '--config', '-c',
         default='config.yaml',
         help='Path to YAML config file (default: config.yaml).'
     )
+    parser.add_argument(
+        '--tech_service_id',
+        help='Filter by Technical Service ID.'
+    )
+    parser.add_argument(
+        '--itba',
+        help='Filter by ITBA.'
+    )
+
     args = parser.parse_args()
 
+    # Load config and base query
     try:
         cfg = load_config(args.config)
+        sql_cfg = cfg.get('sql', {})
+        base_query = sql_cfg.get('base_query', '').strip()
+        if not base_query:
+            parser.error("Config file must define 'sql.base_query'.")
+    except FileNotFoundError:
+        parser.error(f"Config file not found: {args.config}")
+    except yaml.YAMLError as e:
+        parser.error(f"Error parsing config YAML: {e}")
+
+    # Collect filters
+    filters = []
+    values = []
+    mappings = {
+        'tech_service_id': 'service_instance.correlation_id',
+        'itba': 'business_app.correlation_id'
+    }
+
+    for arg_name, column in mappings.items():
+        val = getattr(args, arg_name)
+        if val is not None:
+            filters.append(f"{column} = %s")
+            values.append(val)
+
+    if not filters:
+        parser.error("At least one filter must be specified: --tech_service_id or --itba.")
+
+    # Execute query
+    try:
         conn = get_db_connection(cfg)
         try:
-            results = query_lcp(conn, cfg, args.lcp_id)
-            print(json.dumps(results, default=str))
+            results = query_lcp(conn, base_query, filters, values)
+            print(json.dumps(results, default=str, indent=2))
         finally:
             conn.close()
     except Exception as e:
-        print(json.dumps({'error': str(e)}))
+        print(json.dumps({'error': str(e)}, indent=2))
         sys.exit(1)
-
 
 if __name__ == '__main__':
     main()
