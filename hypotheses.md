@@ -30,7 +30,7 @@ HMW (How Might We):
 #### Related data:
 * [lcp_to_business_applications](./lcp_to_business_applications.csv)
 
-### Design Questions:
+### Design Considerations:
 HMW (How Might We):
 * HMW evolve the data model so that 1 Lean Control Product can control multiple Business Applications and their corresponding Application Services without losing the ability to audit control coverage?
 
@@ -41,7 +41,7 @@ HMW (How Might We):
 * Of all projects, 1,221 correctly track one Lean Control Product; 122 have no Lean Control Product link; 3 track multiple Lean Control Products.
 * The 125 anomalous projects break the governance model and risk untracked work or duplicated scopes.
 
-### Design Questions:
+### Design Considerations:
 HMW (How Might We):
 * HMW detect and automatically correct anomalies in the Jira Project–Lean Control Product mapping to maintain data integrity?
 ---
@@ -51,7 +51,7 @@ HMW (How Might We):
 * The other 11% (203) mappings appear anomalous and warrant investigation.
 * We also need to understand how the mapping of 1 Lean Control Product to one itba applies to larger applications made up of multiple components each with its own ITBA.
 
-### Design Questions:
+### Design Considerations:
 HMW (How Might We):
 * HMW represent and control large applications composed of multiple ITBAs using a single Lean Control Product, while preserving clarity and control over each component?
 ---
@@ -66,7 +66,7 @@ HMW (How Might We):
 #### Related data:
 * [lcp_to_business_application_service_instances](./lcp_to_business_application_service_instances.csv)
 
-### Design Questions:
+### Design Considerations:
 HMW (How Might We):
 * HMW evolve the data model to support both simple 1:1 mappings and complex, multi-region or multi-component environments while preserving traceability and control clarity?
 * HMW retrofit Lean Control Product outliers (e.g. LCP with 46 apps and 108 instances) by decomposing and remapping them into simpler, well-scoped units—without disrupting existing user workflows or visibility?
