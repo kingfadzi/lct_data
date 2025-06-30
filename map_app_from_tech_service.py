@@ -60,7 +60,7 @@ def main():
 
     # Load config and base query
     try:
-        cfg = load_config(args.config)
+        cfg = load_config(args.config or 'config.yaml')
         sql_cfg = cfg.get('sql', {})
         base_query = sql_cfg.get('base_query', '').strip()
         if not base_query:
@@ -86,6 +86,11 @@ def main():
 
     if not filters:
         parser.error("At least one filter must be specified: --tech_service_id or --itba.")
+
+    # Debug: print generated query
+    full_sql = base_query + (" WHERE " + " AND ".join(filters) if filters else "")
+    print(f"Generated SQL: {full_sql}")
+    print(f"Parameters: {values}")
 
     # Execute query
     try:
