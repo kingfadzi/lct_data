@@ -4,19 +4,19 @@
 
 ---
 
-## H1: Each Lean Control Product is linked to at least one service type—either one or more Application Service instances or one or more Technical Service instances—and if it’s only linked to Technical Services, it has no Application Service or Business Application mappings.
-* All Lean Control Products map to either Application Services or are linked to Technical Services.
+## H1: Each Lean Control Product is associated with at least one service type—either Application Service instances or Technical Service—and if linked only to Technical Services, it lacks Application Service or Business Application mappings.
 * 55% of Lean Control Products are mapped Application Services; 45% (≈ 644 Lean Control Products) are linked to Technical Services.
-* Lean Control Products linked to Technical Services do not have links the Business Applications they control therefore lack visibility into the applications and business contexts they cover.
+* Lean Control Products linked to Technical Services do not have links to the Business Applications they control.
 
 #### Related data:
 * [application_services](./application_services.csv)
 * [technical_services](./technical_services.csv)
 
 ### Design Questions:
-* HMW map Lean Control Products linked to Technical Services to their missing Application and Application Service contexts despite incomplete data in the system?
+
+* HMW map Lean Control Products linked to Technical Services to their missing Application and Application Service contexts, even when the system data is incomplete?
 * HMW support accurate mapping of Lean Control Products to applications composed of multiple ITBAs and deployment environments, each with its own Application Service instance?
-* HMW automate the validation and mapping of Lean Control Products to Application and Application Service records where data is already available, to ensure baseline integrity?
+* HMW automate the validation and mapping of Lean Control Products to Application and Application Service where data is already available, to ensure baseline integrity?
 
 ---
 
