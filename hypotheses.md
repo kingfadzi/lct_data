@@ -59,6 +59,9 @@
 * LCPs with 0 apps and 0 instances likely reflect misconfigurations—referential integrity should be checked.
 * High-count outliers pose governance and audit risks; for composite or multi-regional applications, the data model may need additional metadata (e.g. component identifiers or region tags) to maintain clear traceability.
 
+#### Related data:
+* [lcp_to_business_application_service_instances](./lcp_to_business_application_service_instances.csv)
+
 ### Design Questions:
 * HMW evolve the data model to support both simple 1:1 mappings and complex, multi-region or multi-component environments while preserving traceability and control clarity?
 * HMW retrofit Lean Control Product outliers (e.g. LCP with 46 apps and 108 instances) by decomposing and remapping them into simpler, well-scoped units—without disrupting existing user workflows or visibility?
