@@ -27,7 +27,7 @@
 * Mapping 1 Lean Control Product to more than 1 app: Fits complex or regionalized applications, but keeping traceability requires extending the data model to record both the Business Application ID and the Application Service when applying controls.
 
 #### Related data:
-[lcp_to_business_applications](./lcp_to_business_applications.csv)
+* [lcp_to_business_applications](./lcp_to_business_applications.csv)
 
 ### Design Questions:
 * HMW evolve the data model so that 1 Lean Control Product can control multiple Business Applications and their corresponding Application Services without losing the ability to audit control coverage?
