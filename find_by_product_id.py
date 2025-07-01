@@ -55,7 +55,7 @@ def build_engine(cfg):
 
 def main():
     parser = argparse.ArgumentParser(
-        prog="find_business_apps_tree.py",
+        prog="find_by_product_id.py",
         description="Return parent Business Apps and their children, each with Service Instances"
     )
     parser.add_argument(
@@ -83,6 +83,7 @@ def main():
     with Session(engine) as session:
         q = (
             session.query(
+                LeanControlApplication.lean_control_service_id.label('service_id'),
                 ParentApp.correlation_id.label('parent_id'),
                 ParentApp.business_application_name.label('parent_name'),
                 ChildApp.correlation_id.label('child_id'),
@@ -117,16 +118,17 @@ def main():
 
     apps = {}
     for row in rows:
+        service_id = row.service_id
         pid = row.parent_id
         cid = row.child_id
 
-        # Use dict for children grouping internally
         if pid is None:
-            apps.setdefault(cid, {
+            apps.setdefault((service_id, cid), {
+                'lean_control_service_id': service_id,
                 'app_id': cid,
                 'app_name': row.child_name,
                 'service_instances': [],
-                'children': {}
+                'children': []
             })['service_instances'].append({
                 'instance_id':         row.instance_id,
                 'it_service_instance': row.it_service_instance,
@@ -134,7 +136,9 @@ def main():
                 'install_type':        row.install_type
             })
         else:
-            parent = apps.setdefault(pid, {
+            key = (service_id, pid)
+            parent = apps.setdefault(key, {
+                'lean_control_service_id': service_id,
                 'app_id':            pid,
                 'app_name':          row.parent_name,
                 'service_instances': [],
@@ -153,10 +157,14 @@ def main():
             })
 
     # Convert children dicts into lists for JSON output
-    for v in apps.values():
-        v['children'] = list(v['children'].values())
+    results = []
+    for ((service_id, _), app) in apps.items():
+        # convert children
+        if isinstance(app['children'], dict):
+            app['children'] = list(app['children'].values())
+        results.append(app)
 
-    print(json.dumps(list(apps.values()), indent=2))
+    print(json.dumps(results, indent=2))
 
 
 if __name__ == "__main__":
