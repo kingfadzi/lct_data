@@ -6,18 +6,17 @@ SELECT
     lean_app.lean_control_application_id,
     lean_app.servicenow_app_id
 FROM public.lean_control_application AS lean_app
--- link into ServiceNow service instances
+-- still require a matching ServiceInstance and its BusinessApplication
          JOIN public.vwsfitserviceinstance   AS service_instance
               ON lean_app.servicenow_app_id = service_instance.correlation_id
--- link service instances to their Business Application record
          JOIN public.vwsfbusinessapplication AS business_app
               ON service_instance.business_application_sysid = business_app.business_application_sys_id
--- now treat vwsfbusinessapplication as the “child” entries
-         JOIN public.vwsfbusinessapplication AS child
-              ON business_app.correlation_id = child.correlation_id
--- finally lift in each child’s parent
-         JOIN public.vwsfbusinessapplication AS parent
-              ON child.application_parent_correlation_id = parent.correlation_id
+-- but now allow business_app → child to be missing
+         LEFT JOIN public.vwsfbusinessapplication AS child
+                   ON business_app.correlation_id = child.correlation_id
+-- and allow child → parent to be missing too
+         LEFT JOIN public.vwsfbusinessapplication AS parent
+                   ON child.application_parent_correlation_id = parent.correlation_id
 ORDER BY
     parent.business_application_name,
     child.business_application_name
