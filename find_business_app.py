@@ -24,15 +24,15 @@ class ServiceInstance(Base):
     it_business_service_sysid  = Column(String)
     business_application_sysid = Column(String)
     it_service_instance        = Column('it_service_instance', String)
-    environment                = Column('environment',        String)
-    install_type               = Column('install_type',       String)
+    environment                = Column('environment',         String)
+    install_type               = Column('install_type',        String)
 
 class BusinessApp(Base):
     __tablename__ = 'vwsfbusinessapplication'
     __table_args__ = {'schema': 'public'}
-    business_application_sys_id  = Column(String, primary_key=True)
-    correlation_id               = Column(String, index=True)
-    business_application_name    = Column(String)
+    business_application_sys_id   = Column(String, primary_key=True)
+    correlation_id                = Column(String, index=True)
+    business_application_name     = Column(String)
 
 # ——— Helpers ———
 
@@ -42,7 +42,7 @@ def load_config(path):
         return yaml.safe_load(f)
 
 def build_engine(cfg):
-    """Build a SQLAlchemy engine from the config dict."""
+    """Construct a SQLAlchemy engine from the config dict."""
     db = cfg['database']
     url = (
         f"postgresql+psycopg2://{db['user']}:{db['password']}"
@@ -54,7 +54,7 @@ def build_engine(cfg):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Find BusinessApp hierarchy via Tech Service ID"
+        description="Return a list of Business Apps, each with its Service Instances"
     )
     parser.add_argument(
         '-c','--config',
@@ -71,12 +71,12 @@ def main():
     cfg = load_config(args.config)
     engine = build_engine(cfg)
 
-    # 1) Fetch the flat join
+    # 1) Fetch the flat join rows
     with Session(engine) as session:
         rows = (
             session
             .query(
-                ServiceInstance.correlation_id   .label('instance_id'),
+                ServiceInstance.correlation_id  .label('instance_id'),
                 ServiceInstance.it_service_instance,
                 ServiceInstance.environment,
                 ServiceInstance.install_type,
@@ -100,23 +100,23 @@ def main():
             .all()
         )
 
-    # 2) Nest into a hierarchy
-    result = {
-        'service_correlation_id': args.service_correlation_id,
-        'service_instances': []
-    }
-
+    # 2) Group by app_id into a nested list
+    apps = {}
     for inst_id, svc_inst, env, itype, app_id, app_name in rows:
-        result['service_instances'].append({
-            'instance_id':     inst_id,
-            'it_service_instance': svc_inst,
-            'environment':     env,
-            'install_type':    itype,
-            'app': {
-                'id':   app_id,
-                'name': app_name
+        if app_id not in apps:
+            apps[app_id] = {
+                'app_id': app_id,
+                'app_name': app_name,
+                'service_instances': []
             }
+        apps[app_id]['service_instances'].append({
+            'instance_id':        inst_id,
+            'it_service_instance': svc_inst,
+            'environment':        env,
+            'install_type':       itype
         })
+
+    result = list(apps.values())
 
     # 3) Pretty-print JSON
     print(json.dumps(result, indent=2))
