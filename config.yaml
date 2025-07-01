@@ -1,11 +1,7 @@
 database:
-  host: ...
-  port: ...
-  name: ...
-  user: ...
-  password: ...
-sql:
-  base_query: |
-    SELECT *
-    FROM lean_control_product
-    WHERE lean_control_service_id = %s
+  host: 192.168.1.188
+  port: 5432
+  name: lct_data
+  user: postgres
+  password: postgres
+
