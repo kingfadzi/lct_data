@@ -3,17 +3,30 @@ import sys, json
 from rich import print
 from rich.tree import Tree
 
-def add_nodes(tree: Tree, apps: list, service_id=None):
+def add_nodes(tree: Tree, apps: list, service_id=None, jira_backlog_id=None):
     for app in apps:
-        # use the app’s own service_id if it has one, otherwise inherit
-        sid = app.get('lean_control_service_id', service_id)
-        node = tree.add(f"[bold]{app['app_name']}[/bold] (LCP ID={sid})")
-        # show service instances
+        # carry down the LCP ID and Jira ID
+        sid  = app.get('lean_control_service_id', service_id)
+        jira = app.get('jira_backlog_id', jira_backlog_id)
+        aid  = app.get('app_id')
+
+        # show app node with all three IDs
+        node = tree.add(
+            f"[bold]{app['app_name']}[/bold] "
+            f"(LCP `{sid}`, Jira `{jira}`, AppID `{aid}`)"
+        )
+
+        # list each service instance, surfacing id in parentheses
         for inst in app.get('service_instances', []):
-            node.add(f"{inst['it_service_instance']} · {inst['environment']} · {inst['install_type']}")
-        # recurse into children, passing down sid
+            name = inst['it_service_instance']
+            iid  = inst['instance_id']
+            env  = inst['environment']
+            ityp = inst['install_type']
+            node.add(f"{name} (`{iid}`) · {env} · {ityp}")
+
+        # recurse into children
         if app.get('children'):
-            add_nodes(node, app['children'], service_id=sid)
+            add_nodes(node, app['children'], service_id=sid, jira_backlog_id=jira)
 
 if __name__ == "__main__":
     data = json.load(sys.stdin)
