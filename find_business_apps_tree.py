@@ -30,9 +30,9 @@ class ServiceInstance(Base):
 class BusinessApp(Base):
     __tablename__ = 'vwsfbusinessapplication'
     __table_args__ = {'schema': 'public'}
-    business_application_sys_id      = Column(String, primary_key=True)
-    correlation_id                   = Column(String, index=True)
-    business_application_name        = Column(String)
+    business_application_sys_id       = Column(String, primary_key=True)
+    correlation_id                    = Column(String, index=True)
+    business_application_name         = Column(String)
     application_parent_correlation_id = Column(String)
 
 # ——— Helpers ———
@@ -55,32 +55,34 @@ def build_engine(cfg):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Return a list of parent Business Apps and their children, each with Service Instances"
+        prog="find_business_apps_tree.py",
+        description="Return parent Business Apps and their children, each with Service Instances"
     )
     parser.add_argument(
-        '-c','--config',
+        '-c', '--config',
         default='config.yaml',
         help='Path to YAML config (default: config.yaml)'
     )
     parser.add_argument(
-        'lean_control_service_id',
-        help='Filter by lean_control_application.lean_control_service_id'
+        'lean_control_service_ids',
+        nargs='*',
+        metavar='LEAN_CONTROL_SERVICE_ID',
+        help=(
+            'Zero or more lean_control_service_id values; '
+            'if omitted, returns data for all lean_control_applications'
+        )
     )
     args = parser.parse_args()
 
-    # Load DB config & engine
     cfg    = load_config(args.config)
     engine = build_engine(cfg)
 
-    # aliases for self‐join
     ChildApp  = aliased(BusinessApp)
     ParentApp = aliased(BusinessApp)
 
-    # 1) Fetch the flat join rows
     with Session(engine) as session:
-        rows = (
-            session
-            .query(
+        q = (
+            session.query(
                 ParentApp.correlation_id.label('parent_id'),
                 ParentApp.business_application_name.label('parent_name'),
                 ChildApp.correlation_id.label('child_id'),
@@ -90,84 +92,71 @@ def main():
                 ServiceInstance.environment,
                 ServiceInstance.install_type
             )
-            # start from lean_control_application → service_instance
             .join(
                 LeanControlApplication,
                 LeanControlApplication.servicenow_app_id == ServiceInstance.correlation_id
             )
-            # then to the child BusinessApp
             .join(
                 ChildApp,
                 ServiceInstance.business_application_sysid == ChildApp.business_application_sys_id
             )
-            # then optionally to its parent BusinessApp
             .outerjoin(
                 ParentApp,
                 ChildApp.application_parent_correlation_id == ParentApp.correlation_id
             )
-            .filter(
-                LeanControlApplication.lean_control_service_id ==
-                args.lean_control_service_id
-            )
-            .all()
         )
 
-    # 2) Build nested structure
+        if args.lean_control_service_ids:
+            q = q.filter(
+                LeanControlApplication.lean_control_service_id.in_(
+                    args.lean_control_service_ids
+                )
+            )
+
+        rows = q.all()
+
     apps = {}
     for row in rows:
         pid = row.parent_id
         cid = row.child_id
 
+        # Use dict for children grouping internally
         if pid is None:
-            # no parent → this child is a top‐level app
-            app_key = cid
-            if app_key not in apps:
-                apps[app_key] = {
-                    'app_id':           cid,
-                    'app_name':         row.child_name,
-                    'service_instances': [],
-                    'children':         []
-                }
-            apps[app_key]['service_instances'].append({
+            apps.setdefault(cid, {
+                'app_id': cid,
+                'app_name': row.child_name,
+                'service_instances': [],
+                'children': {}
+            })['service_instances'].append({
                 'instance_id':         row.instance_id,
                 'it_service_instance': row.it_service_instance,
                 'environment':         row.environment,
                 'install_type':        row.install_type
             })
-
         else:
-            # has a parent → ensure parent entry
-            if pid not in apps:
-                apps[pid] = {
-                    'app_id':            pid,
-                    'app_name':          row.parent_name,
-                    'service_instances': [],
-                    'children':          {}
-                }
-            # ensure child entry under this parent
-            children = apps[pid]['children']
-            if cid not in children:
-                children[cid] = {
-                    'app_id':            cid,
-                    'app_name':          row.child_name,
-                    'service_instances': []
-                }
-            children[cid]['service_instances'].append({
+            parent = apps.setdefault(pid, {
+                'app_id':            pid,
+                'app_name':          row.parent_name,
+                'service_instances': [],
+                'children':          {}
+            })
+            child_dict = parent['children'].setdefault(cid, {
+                'app_id':            cid,
+                'app_name':          row.child_name,
+                'service_instances': []
+            })
+            child_dict['service_instances'].append({
                 'instance_id':         row.instance_id,
                 'it_service_instance': row.it_service_instance,
                 'environment':         row.environment,
                 'install_type':        row.install_type
             })
 
-    # Convert any children dicts to lists
-    for app in apps.values():
-        if isinstance(app['children'], dict):
-            app['children'] = list(app['children'].values())
+    # Convert children dicts into lists for JSON output
+    for v in apps.values():
+        v['children'] = list(v['children'].values())
 
-    result = list(apps.values())
-
-    # 3) Pretty-print JSON
-    print(json.dumps(result, indent=2))
+    print(json.dumps(list(apps.values()), indent=2))
 
 
 if __name__ == "__main__":
