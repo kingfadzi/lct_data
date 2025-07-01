@@ -33,6 +33,12 @@ class LeanControlApplication(Base):
     lean_control_service_id = Column(String, primary_key=True)
     servicenow_app_id       = Column(String, index=True)
 
+class ProductBacklogDetails(Base):
+    __tablename__ = 'lean_control_product_backlog_details'
+    __table_args__ = {'schema': 'public'}
+    lct_product_id  = Column(String, primary_key=True)
+    jira_backlog_id = Column(String)
+
 class BusinessApp(Base):
     __tablename__ = 'vwsfbusinessapplication'
     __table_args__ = {'schema': 'public'}
@@ -87,8 +93,9 @@ def main():
     with Session(engine) as session:
         q = (
             session.query(
-                BusinessService.service_correlation_id.label('service_id'),
-                LeanControlApplication.lean_control_service_id.label('product_service_id'),
+                LeanControlApplication.lean_control_service_id.label('lean_control_service_id'),
+                ProductBacklogDetails.jira_backlog_id.label('jira_backlog_id'),
+                BusinessService.service_correlation_id.label('service_correlation_id'),
                 ParentApp.correlation_id.label('parent_id'),
                 ParentApp.business_application_name.label('parent_name'),
                 ChildApp.correlation_id.label('child_id'),
@@ -105,6 +112,10 @@ def main():
             .join(
                 LeanControlApplication,
                 LeanControlApplication.servicenow_app_id == ServiceInstance.correlation_id
+            )
+            .join(
+                ProductBacklogDetails,
+                ProductBacklogDetails.lct_product_id == LeanControlApplication.lean_control_service_id
             )
             .join(
                 ChildApp,
@@ -125,18 +136,19 @@ def main():
 
         rows = q.all()
 
-    # build nested hierarchy
     apps = {}
     for row in rows:
-        sid  = row.service_id
-        prod = row.product_service_id
+        prod = row.lean_control_service_id
+        jira = row.jira_backlog_id
+        sid  = row.service_correlation_id
         pid  = row.parent_id
         cid  = row.child_id
 
         if pid is None:
-            key = (sid, prod, cid)
+            key = (prod, sid, cid)
             apps.setdefault(key, {
                 'lean_control_service_id':   prod,
+                'jira_backlog_id':           jira,
                 'service_correlation_id':    sid,
                 'app_id':                    cid,
                 'app_name':                  row.child_name,
@@ -149,9 +161,10 @@ def main():
                 'install_type':        row.install_type
             })
         else:
-            key = (sid, prod, pid)
+            key = (prod, sid, pid)
             parent = apps.setdefault(key, {
                 'lean_control_service_id':   prod,
+                'jira_backlog_id':           jira,
                 'service_correlation_id':    sid,
                 'app_id':                    pid,
                 'app_name':                  row.parent_name,

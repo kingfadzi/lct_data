@@ -17,6 +17,12 @@ class LeanControlApplication(Base):
     lean_control_service_id = Column(String, primary_key=True)
     servicenow_app_id       = Column(String, index=True)
 
+class ProductBacklogDetails(Base):
+    __tablename__ = 'lean_control_product_backlog_details'
+    __table_args__ = {'schema': 'public'}
+    lct_product_id  = Column(String, primary_key=True)
+    jira_backlog_id = Column(String)
+
 class ServiceInstance(Base):
     __tablename__ = 'vwsfitserviceinstance'
     __table_args__ = {'schema': 'public'}
@@ -52,11 +58,10 @@ def build_engine(cfg):
     return create_engine(url, echo=False)
 
 # ——— Main ———
-
 def main():
     parser = argparse.ArgumentParser(
         prog="find_by_product_id.py",
-        description="Return parent Business Apps and their children, each with Service Instances"
+        description="Return parent Business Apps and their children, each with Service Instances and Jira backlog ID"
     )
     parser.add_argument(
         '-c', '--config',
@@ -83,7 +88,8 @@ def main():
     with Session(engine) as session:
         q = (
             session.query(
-                LeanControlApplication.lean_control_service_id.label('service_id'),
+                LeanControlApplication.lean_control_service_id.label('lean_control_service_id'),
+                ProductBacklogDetails.jira_backlog_id.label('jira_backlog_id'),
                 ParentApp.correlation_id.label('parent_id'),
                 ParentApp.business_application_name.label('parent_name'),
                 ChildApp.correlation_id.label('child_id'),
@@ -96,6 +102,10 @@ def main():
             .join(
                 LeanControlApplication,
                 LeanControlApplication.servicenow_app_id == ServiceInstance.correlation_id
+            )
+            .join(
+                ProductBacklogDetails,
+                ProductBacklogDetails.lct_product_id == LeanControlApplication.lean_control_service_id
             )
             .join(
                 ChildApp,
@@ -118,19 +128,20 @@ def main():
 
     apps = {}
     for row in rows:
-        service_id = row.service_id
-        pid = row.parent_id
-        cid = row.child_id
+        prod = row.lean_control_service_id
+        jira = row.jira_backlog_id
+        pid  = row.parent_id
+        cid  = row.child_id
 
         if pid is None:
-            # top-level apps: children as dict for consistency
-            key = (service_id, cid)
+            key = (prod, cid)
             apps.setdefault(key, {
-                'lean_control_service_id': service_id,
-                'app_id': cid,
-                'app_name': row.child_name,
-                'service_instances': [],
-                'children': {}
+                'lean_control_service_id': prod,
+                'jira_backlog_id':         jira,
+                'app_id':                  cid,
+                'app_name':                row.child_name,
+                'service_instances':       [],
+                'children':                {}
             })['service_instances'].append({
                 'instance_id':         row.instance_id,
                 'it_service_instance': row.it_service_instance,
@@ -138,14 +149,14 @@ def main():
                 'install_type':        row.install_type
             })
         else:
-            # parent apps: already have dict for children
-            key = (service_id, pid)
+            key = (prod, pid)
             parent = apps.setdefault(key, {
-                'lean_control_service_id': service_id,
-                'app_id':            pid,
-                'app_name':          row.parent_name,
-                'service_instances': [],
-                'children':          {}
+                'lean_control_service_id': prod,
+                'jira_backlog_id':         jira,
+                'app_id':                  pid,
+                'app_name':                row.parent_name,
+                'service_instances':       [],
+                'children':                {}
             })
             child_dict = parent['children'].setdefault(cid, {
                 'app_id':            cid,
@@ -159,14 +170,12 @@ def main():
                 'install_type':        row.install_type
             })
 
-    # Convert children dicts into lists for JSON output
     results = []
-    for key, app in apps.items():
-        app['children'] = list(app['children'].values())
-        results.append(app)
+    for entry in apps.values():
+        entry['children'] = list(entry['children'].values())
+        results.append(entry)
 
     print(json.dumps(results, indent=2))
 
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
