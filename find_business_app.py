@@ -5,148 +5,122 @@ import yaml
 import argparse
 import json
 
-from sqlalchemy import (
-    create_engine,
-    Column,
-    String,
-    ForeignKeyConstraint,
-)
-from sqlalchemy.orm import (
-    declarative_base,
-    relationship,
-    Session,
-    joinedload,
-)
+from sqlalchemy import create_engine, Column, String
+from sqlalchemy.orm import declarative_base, Session
 
+# ——— Models ———
 Base = declarative_base()
 
 class BusinessService(Base):
-    __tablename__ = "vwsfitbusinessservice"
-    __table_args__ = {"schema": "public"}
-
+    __tablename__ = 'vwsfitbusinessservice'
+    __table_args__ = {'schema': 'public'}
     it_business_service_sysid = Column(String, primary_key=True)
     service_correlation_id    = Column(String, index=True)
 
-    # one‑to‑many → ServiceInstance
-    service_instances = relationship(
-        "ServiceInstance",
-        back_populates="business_service",
-        cascade="all, delete-orphan"
-    )
-
 class ServiceInstance(Base):
-    __tablename__ = "vwsfitserviceinstance"
-    __table_args__ = (
-        # link to BusinessService
-        ForeignKeyConstraint(
-            ["it_business_service_sysid"],
-            ["public.vwsfitbusinessservice.it_business_service_sysid"]
-        ),
-        # link to BusinessApp
-        ForeignKeyConstraint(
-            ["business_application_sysid"],
-            ["public.vwsfbusinessapplication.business_application_sys_id"]
-        ),
-        {"schema": "public"}
-    )
-
+    __tablename__ = 'vwsfitserviceinstance'
+    __table_args__ = {'schema': 'public'}
     correlation_id             = Column(String, primary_key=True)
-    it_business_service_sysid  = Column(String, index=True)
-    business_application_sysid = Column(String, index=True)
-
-    # relationships
-    business_service = relationship(
-        "BusinessService",
-        back_populates="service_instances"
-    )
-    business_app = relationship(
-        "BusinessApp",
-        back_populates="service_instances"
-    )
+    it_business_service_sysid  = Column(String)
+    business_application_sysid = Column(String)
+    it_service_instance        = Column('it_service_instance', String)
+    environment                = Column('environment',        String)
+    install_type               = Column('install_type',       String)
 
 class BusinessApp(Base):
-    __tablename__ = "vwsfbusinessapplication"
-    __table_args__ = {"schema": "public"}
+    __tablename__ = 'vwsfbusinessapplication'
+    __table_args__ = {'schema': 'public'}
+    business_application_sys_id  = Column(String, primary_key=True)
+    correlation_id               = Column(String, index=True)
+    business_application_name    = Column(String)
 
-    business_application_sys_id   = Column(String, primary_key=True)
-    correlation_id                = Column(String, index=True)
-    business_application_name     = Column(String)
-
-    # back‑ref to ServiceInstance
-    service_instances = relationship(
-        "ServiceInstance",
-        back_populates="business_app"
-    )
+# ——— Helpers ———
 
 def load_config(path):
-    with open(path, "r") as f:
+    """Load DB credentials from YAML."""
+    with open(path, 'r') as f:
         return yaml.safe_load(f)
 
 def build_engine(cfg):
-    db = cfg["database"]
+    """Build a SQLAlchemy engine from the config dict."""
+    db = cfg['database']
     url = (
         f"postgresql+psycopg2://{db['user']}:{db['password']}"
         f"@{db['host']}:{db['port']}/{db['name']}"
     )
     return create_engine(url, echo=False)
 
+# ——— Main ———
+
 def main():
     parser = argparse.ArgumentParser(
-        description="Return a BusinessService → ServiceInstances → BusinessApp hierarchy"
+        description="Find BusinessApp hierarchy via Tech Service ID"
     )
     parser.add_argument(
-        "-c", "--config",
-        default="config.yaml",
-        help="Path to YAML config (default: config.yaml)"
+        '-c','--config',
+        default='config.yaml',
+        help='Path to YAML config (default: config.yaml)'
     )
     parser.add_argument(
-        "service_correlation_id",
-        help="The business_service.service_correlation_id to look up"
+        'service_correlation_id',
+        help='Filter by business_service.service_correlation_id'
     )
     args = parser.parse_args()
 
-    # load DB config & engine
-    try:
-        cfg = load_config(args.config)
-        engine = build_engine(cfg)
-    except Exception as e:
-        parser.error(f"Failed to load config or connect: {e}")
+    # Load DB config & engine
+    cfg = load_config(args.config)
+    engine = build_engine(cfg)
 
-    # fetch with eager loading
+    # 1) Fetch the flat join
     with Session(engine) as session:
-        svc = (
+        rows = (
             session
-            .query(BusinessService)
-            .options(
-                joinedload(BusinessService.service_instances)
-                .joinedload(ServiceInstance.business_app)
+            .query(
+                ServiceInstance.correlation_id   .label('instance_id'),
+                ServiceInstance.it_service_instance,
+                ServiceInstance.environment,
+                ServiceInstance.install_type,
+                BusinessApp.correlation_id      .label('app_id'),
+                BusinessApp.business_application_name.label('app_name'),
             )
-            .filter_by(service_correlation_id=args.service_correlation_id)
-            .one_or_none()
+            .join(
+                BusinessService,
+                BusinessService.it_business_service_sysid ==
+                ServiceInstance.it_business_service_sysid
+            )
+            .join(
+                BusinessApp,
+                ServiceInstance.business_application_sysid ==
+                BusinessApp.business_application_sys_id
+            )
+            .filter(
+                BusinessService.service_correlation_id ==
+                args.service_correlation_id
+            )
+            .all()
         )
 
-    # build JSON output
-    if svc is None:
-        print("[]")
-        return
-
+    # 2) Nest into a hierarchy
     result = {
-        "service_correlation_id": svc.service_correlation_id,
-        "it_business_service_sysid": svc.it_business_service_sysid,
-        "service_instances": []
+        'service_correlation_id': args.service_correlation_id,
+        'service_instances': []
     }
 
-    for inst in svc.service_instances:
-        # if no business_app linked, skip
-        if inst.business_app is None:
-            continue
-        result["service_instances"].append({
-            "instance_id":    inst.correlation_id,
-            "app_id":         inst.business_app.correlation_id,
-            "app_name":       inst.business_app.business_application_name
+    for inst_id, svc_inst, env, itype, app_id, app_name in rows:
+        result['service_instances'].append({
+            'instance_id':     inst_id,
+            'it_service_instance': svc_inst,
+            'environment':     env,
+            'install_type':    itype,
+            'app': {
+                'id':   app_id,
+                'name': app_name
+            }
         })
 
+    # 3) Pretty-print JSON
     print(json.dumps(result, indent=2))
+
 
 if __name__ == "__main__":
     main()
