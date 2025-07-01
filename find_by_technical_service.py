@@ -4,9 +4,13 @@ import os
 import yaml
 import argparse
 import json
-
+import logging
+import sqlparse
 from sqlalchemy import create_engine, Column, String
 from sqlalchemy.orm import declarative_base, Session, aliased
+
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)s: %(message)s')
+logger = logging.getLogger(__name__)
 
 # ——— Models ———
 Base = declarative_base()
@@ -133,6 +137,10 @@ def main():
                     args.service_correlation_ids
                 )
             )
+
+        raw_sql = str(q.statement.compile(dialect=engine.dialect, compile_kwargs={"literal_binds": True}))
+        formatted_sql = sqlparse.format(raw_sql, reindent=True, keyword_case='upper')
+        logger.debug("Generated SQL:\n%s", formatted_sql)
 
         rows = q.all()
 
