@@ -123,12 +123,14 @@ def main():
         cid = row.child_id
 
         if pid is None:
-            apps.setdefault((service_id, cid), {
+            # top-level apps: children as dict for consistency
+            key = (service_id, cid)
+            apps.setdefault(key, {
                 'lean_control_service_id': service_id,
                 'app_id': cid,
                 'app_name': row.child_name,
                 'service_instances': [],
-                'children': []
+                'children': {}
             })['service_instances'].append({
                 'instance_id':         row.instance_id,
                 'it_service_instance': row.it_service_instance,
@@ -136,6 +138,7 @@ def main():
                 'install_type':        row.install_type
             })
         else:
+            # parent apps: already have dict for children
             key = (service_id, pid)
             parent = apps.setdefault(key, {
                 'lean_control_service_id': service_id,
@@ -158,10 +161,8 @@ def main():
 
     # Convert children dicts into lists for JSON output
     results = []
-    for ((service_id, _), app) in apps.items():
-        # convert children
-        if isinstance(app['children'], dict):
-            app['children'] = list(app['children'].values())
+    for key, app in apps.items():
+        app['children'] = list(app['children'].values())
         results.append(app)
 
     print(json.dumps(results, indent=2))
