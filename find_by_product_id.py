@@ -32,7 +32,7 @@ class ServiceInstance(Base):
     __tablename__ = 'vwsfitserviceinstance'
     __table_args__ = {'schema': 'public'}
     correlation_id             = Column(String, primary_key=True)
-    it_business_service_sysid  = Column(String)
+    it_business_service        = Column('it_business_service', String)
     business_application_sysid = Column(String)
     it_service_instance        = Column(String)
     environment                = Column(String)
@@ -58,14 +58,13 @@ def build_engine(cfg):
         f"postgresql+psycopg2://{db['user']}:{db['password']}"
         f"@{db['host']}:{db['port']}/{db['name']}"
     )
-    engine = create_engine(url, echo=False)
-    return engine
+    return create_engine(url, echo=False)
 
 # ——— Main ———
 def main():
     parser = argparse.ArgumentParser(
         prog="find_by_product_id.py",
-        description="Return parent Business Apps and their children, each with Service Instances and Jira backlog ID"
+        description="Return Business Apps hierarchy with Service Instances, Jira backlog ID, and business service"
     )
     parser.add_argument(
         '-c', '--config',
@@ -76,17 +75,14 @@ def main():
         'lean_control_service_ids',
         nargs='*',
         metavar='LEAN_CONTROL_SERVICE_ID',
-        help=(
-            'Zero or more lean_control_service_id values; '
-            'if omitted, returns data for all lean_control_applications'
-        )
+        help='Zero or more lean_control_service_id values; if omitted, return all'
     )
     args = parser.parse_args()
 
     cfg = load_config(args.config)
     engine = build_engine(cfg)
 
-    ChildApp = aliased(BusinessApp)
+    ChildApp  = aliased(BusinessApp)
     ParentApp = aliased(BusinessApp)
 
     with Session(engine) as session:
@@ -94,6 +90,7 @@ def main():
             session.query(
                 LeanControlApplication.lean_control_service_id.label('lean_control_service_id'),
                 ProductBacklogDetails.jira_backlog_id.label('jira_backlog_id'),
+                ServiceInstance.it_business_service.label('it_business_service'),
                 ParentApp.correlation_id.label('parent_id'),
                 ParentApp.business_application_name.label('parent_name'),
                 ChildApp.correlation_id.label('child_id'),
@@ -103,23 +100,36 @@ def main():
                 ServiceInstance.environment,
                 ServiceInstance.install_type
             )
-            .join(LeanControlApplication,
-                  LeanControlApplication.servicenow_app_id == ServiceInstance.correlation_id)
-            .join(ProductBacklogDetails,
-                  ProductBacklogDetails.lct_product_id == LeanControlApplication.lean_control_service_id)
-            .join(ChildApp,
-                  ServiceInstance.business_application_sysid == ChildApp.business_application_sys_id)
-            .outerjoin(ParentApp,
-                       ChildApp.application_parent_correlation_id == ParentApp.correlation_id)
+            .join(
+                LeanControlApplication,
+                LeanControlApplication.servicenow_app_id == ServiceInstance.correlation_id
+            )
+            .join(
+                ProductBacklogDetails,
+                ProductBacklogDetails.lct_product_id == LeanControlApplication.lean_control_service_id
+            )
+            .join(
+                ChildApp,
+                ServiceInstance.business_application_sysid == ChildApp.business_application_sys_id
+            )
+            .outerjoin(
+                ParentApp,
+                ChildApp.application_parent_correlation_id == ParentApp.correlation_id
+            )
         )
 
         if args.lean_control_service_ids:
             q = q.filter(
-                LeanControlApplication.lean_control_service_id.in_(args.lean_control_service_ids)
+                LeanControlApplication.lean_control_service_id.in_(
+                    args.lean_control_service_ids
+                )
             )
 
         # Compile, format, and log the SQL
-        raw_sql = str(q.statement.compile(dialect=engine.dialect, compile_kwargs={"literal_binds": True}))
+        raw_sql = str(q.statement.compile(
+            dialect=engine.dialect,
+            compile_kwargs={"literal_binds": True}
+        ))
         formatted_sql = sqlparse.format(raw_sql, reindent=True, keyword_case='upper')
         logger.debug("Generated SQL:\n%s", formatted_sql)
 
@@ -129,6 +139,7 @@ def main():
     for row in rows:
         prod = row.lean_control_service_id
         jira = row.jira_backlog_id
+        biz  = row.it_business_service
         pid  = row.parent_id
         cid  = row.child_id
 
@@ -137,21 +148,24 @@ def main():
             apps.setdefault(key, {
                 'lean_control_service_id': prod,
                 'jira_backlog_id': jira,
+                'it_business_service': biz,
                 'app_id': cid,
                 'app_name': row.child_name,
                 'service_instances': [],
                 'children': {}
             })['service_instances'].append({
-                'instance_id': row.instance_id,
+                'instance_id':         row.instance_id,
+                'it_business_service': biz,
                 'it_service_instance': row.it_service_instance,
-                'environment': row.environment,
-                'install_type': row.install_type
+                'environment':         row.environment,
+                'install_type':        row.install_type
             })
         else:
             key = (prod, pid)
             parent = apps.setdefault(key, {
                 'lean_control_service_id': prod,
                 'jira_backlog_id': jira,
+                'it_business_service': biz,
                 'app_id': pid,
                 'app_name': row.parent_name,
                 'service_instances': [],
@@ -163,10 +177,11 @@ def main():
                 'service_instances': []
             })
             child_dict['service_instances'].append({
-                'instance_id': row.instance_id,
+                'instance_id':         row.instance_id,
+                'it_business_service': biz,
                 'it_service_instance': row.it_service_instance,
-                'environment': row.environment,
-                'install_type': row.install_type
+                'environment':         row.environment,
+                'install_type':        row.install_type
             })
 
     results = []
