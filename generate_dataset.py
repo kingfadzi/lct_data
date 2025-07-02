@@ -1,3 +1,7 @@
+# generate_dataset.py
+# Connect to your database, build a simple edges dataset for
+# Business Services -> Apps -> Service Instances, and export to CSV.
+
 import argparse
 import pandas as pd
 from sqlalchemy import create_engine
@@ -22,8 +26,8 @@ WITH base AS (
     ON lpbd.lct_product_id = fia.lean_control_service_id
   JOIN public.vwsfbusinessapplication        AS bac
     ON si.business_application_sysid = bac.business_application_sys_id
-  JOIN public.vwsfitbusinessservice          AS bs
-    ON si.it_business_service_sysid = bs.service_correlation_id
+  JOIN public.vwsfitbusinessservice AS bs
+    ON si.it_business_service_sysid = bs.it_business_service_sysid
 ),
 services AS (
   SELECT DISTINCT
