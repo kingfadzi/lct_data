@@ -18,7 +18,9 @@ WITH base AS (
     bac.correlation_id               AS app_id,
     bac.business_application_name    AS app_name,
     si.correlation_id                AS instance_id,
-    si.it_service_instance          AS instance_name
+    si.it_service_instance           AS instance_name,
+    si.environment                   AS environment,
+    si.install_type                  AS install_type
   FROM public.vwsfitserviceinstance AS si
   JOIN public.lean_control_application      AS fia
     ON fia.servicenow_app_id = si.correlation_id
@@ -26,7 +28,7 @@ WITH base AS (
     ON lpbd.lct_product_id = fia.lean_control_service_id
   JOIN public.vwsfbusinessapplication        AS bac
     ON si.business_application_sysid = bac.business_application_sys_id
-  JOIN public.vwsfitbusinessservice AS bs
+  JOIN public.vwsfitbusinessservice          AS bs
     ON si.it_business_service_sysid = bs.it_business_service_sysid
 ),
 services AS (
@@ -38,21 +40,25 @@ services AS (
   FROM base
 ),
 edges AS (
-  -- Root
+  -- 0) root
   SELECT
-    NULL           AS parent,
-    'Business Services' AS id,
-    'Business Services' AS name,
-    NULL           AS lean_control_service_id,
-    NULL           AS jira_backlog_id,
-    NULL           AS app_id,
-    NULL           AS app_name,
-    NULL           AS instance_id,
-    NULL           AS instance_name
+    NULL                 AS parent,
+    'Business Services'  AS id,
+    'Business Services'  AS name,
+    NULL                 AS lean_control_service_id,
+    NULL                 AS jira_backlog_id,
+    NULL                 AS app_id,
+    NULL                 AS app_name,
+    NULL                 AS instance_id,
+    NULL                 AS instance_name,
+    NULL                 AS environment,
+    NULL                 AS install_type
+
   UNION ALL
-  -- Services under root
+
+  -- 1) services under root
   SELECT
-    'Business Services' AS parent,
+    'Business Services'  AS parent,
     s.id                 AS id,
     s.name               AS name,
     s.lean_control_service_id,
@@ -60,34 +66,44 @@ edges AS (
     NULL                 AS app_id,
     NULL                 AS app_name,
     NULL                 AS instance_id,
-    NULL                 AS instance_name
-  FROM services AS s
+    NULL                 AS instance_name,
+    NULL                 AS environment,
+    NULL                 AS install_type
+  FROM services s
+
   UNION ALL
-  -- Apps under service
+
+  -- 2) apps under service
   SELECT
-    b.service_id AS parent,
-    b.app_id      AS id,
-    b.app_name    AS name,
+    b.service_id         AS parent,
+    b.app_id             AS id,
+    b.app_name           AS name,
     b.lean_control_service_id,
     b.jira_backlog_id,
-    b.app_id      AS app_id,
-    b.app_name    AS app_name,
-    NULL          AS instance_id,
-    NULL          AS instance_name
-  FROM base AS b
+    b.app_id             AS app_id,
+    b.app_name           AS app_name,
+    NULL                 AS instance_id,
+    NULL                 AS instance_name,
+    NULL                 AS environment,
+    NULL                 AS install_type
+  FROM base b
+
   UNION ALL
-  -- Instances under app
+
+  -- 3) instances under app
   SELECT
-    b.app_id        AS parent,
-    b.instance_id   AS id,
-    b.instance_name AS name,
+    b.app_id             AS parent,
+    b.instance_id        AS id,
+    b.instance_name      AS name,
     b.lean_control_service_id,
     b.jira_backlog_id,
-    b.app_id        AS app_id,
-    b.app_name      AS app_name,
-    b.instance_id   AS instance_id,
-    b.instance_name AS instance_name
-  FROM base AS b
+    b.app_id             AS app_id,
+    b.app_name           AS app_name,
+    b.instance_id        AS instance_id,
+    b.instance_name      AS instance_name,
+    b.environment,
+    b.install_type
+  FROM base b
 )
 SELECT
   id,
@@ -98,7 +114,9 @@ SELECT
   app_id,
   app_name,
   instance_id,
-  instance_name
+  instance_name,
+  environment,
+  install_type
 FROM edges
 ORDER BY
   CASE WHEN id = 'Business Services' THEN 0 ELSE 1 END,
