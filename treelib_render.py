@@ -15,16 +15,19 @@ def build_children_map(df, root_id='Business Services'):
 
 
 def render_tree(csv_path, markdown_path):
-    # Load CSV with id, parent, name, lean_control_service_id, jira_backlog_id
+    # Load CSV
     df = pd.read_csv(csv_path, dtype=str).fillna('')
     root_id = 'Business Services'
 
-    # Build helper maps
+    # Build parent->children map and name lookup
     children_map = build_children_map(df, root_id)
     name_map = df.set_index('id')['name'].to_dict()
-    meta_map = df.set_index('id')[['lean_control_service_id', 'jira_backlog_id']].to_dict('index')
 
-    # Filter children_map to valid parents
+    # Build metadata map (drop duplicate ids to ensure unique index)
+    df_meta = df.drop_duplicates(subset=['id'], keep='first')
+    meta_map = df_meta.set_index('id')[['lean_control_service_id', 'jira_backlog_id']].to_dict('index')
+
+    # Clean children_map: retain only valid parents
     valid_ids = set(df['id']) | {root_id}
     clean_map = {pid: kids[:] for pid, kids in children_map.items() if pid in valid_ids}
     extras = []
@@ -35,7 +38,7 @@ def render_tree(csv_path, markdown_path):
         clean_map.setdefault(root_id, []).extend(extras)
     children_map = clean_map
 
-    # Initialize tree
+    # Initialize tree with synthetic root
     tree = Tree()
     tree.create_node(tag=root_id, identifier=root_id)
 
@@ -45,7 +48,6 @@ def render_tree(csv_path, markdown_path):
             if child_id == root_id:
                 continue
             if tree.contains(child_id):
-                # Even if node exists, pass down metadata for children
                 add_nodes(child_id, inherited_meta)
                 continue
             # Build node tag with only changed metadata
