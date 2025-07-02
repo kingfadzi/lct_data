@@ -14,6 +14,7 @@ WITH base AS (
     fia.lean_control_service_id      AS lean_control_service_id,
     lpbd.jira_backlog_id             AS jira_backlog_id,
     si.it_business_service_sysid     AS service_id,
+    bs.service_correlation_id        AS bs_correlation_id,
     bs.service                       AS service_name,
     bac.correlation_id               AS app_id,
     bac.business_application_name    AS app_name,
@@ -33,7 +34,7 @@ WITH base AS (
 ),
 services AS (
   SELECT DISTINCT
-    service_id AS id,
+    bs_correlation_id AS id,
     service_name AS name,
     lean_control_service_id,
     jira_backlog_id
