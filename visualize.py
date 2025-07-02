@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-import sys, json, argparse
+import os
+import sys
+import json
+import argparse
+import re
 from rich import print
 from rich.tree import Tree
 from rich.console import Console
@@ -59,11 +63,31 @@ def main():
     with open(args.input_file, 'r') as f:
         services = json.load(f)
 
-    # Build and print the tree
+    # Build tree
     tree = Tree("Business Services Hierarchy")
     add_service_nodes(tree, services)
+
+    # Print to console
     console = Console()
     console.print(tree)
+
+    # Capture tree output including ANSI
+    with console.capture() as capture:
+        console.print(tree)
+    tree_str = capture.get()
+
+    # Strip ANSI escape sequences
+    clean_tree = re.sub(r'\x1b\[[0-9;]*m', '', tree_str)
+
+    # Write to markdown file
+    base = os.path.splitext(args.input_file)[0]
+    md_path = f"{base}.md"
+    with open(md_path, 'w') as md:
+        md.write('```text\n')
+        md.write(clean_tree)
+        md.write('```\n')
+
+    print(f"Wrote Markdown to {md_path}")
 
 if __name__ == "__main__":
     main()
