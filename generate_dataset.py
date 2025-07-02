@@ -1,8 +1,3 @@
-# generate_dataset.py
-# This script connects to your database using settings from config.yaml,
-# runs the SQL to build the edges dataset (using it_business_service_sysid join),
-# and writes the result to a CSV for downstream consumption.
-
 import argparse
 import pandas as pd
 from sqlalchemy import create_engine
@@ -36,7 +31,7 @@ WITH
     LEFT JOIN public.vwsfbusinessapplication AS bap
       ON bac.application_parent_correlation_id = bap.correlation_id
     JOIN public.vwsfitbusinessservice AS bs
-      ON si.it_business_service_sysid = bs.service_correlation_id
+      ON si.it_business_service_sysid = bs.it_business_service_sysid
   ),
   distinct_services AS (
     SELECT DISTINCT
@@ -205,6 +200,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-# treelib_render_simple.py unchanged for structure verification
-# ...
