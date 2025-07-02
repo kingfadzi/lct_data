@@ -11,26 +11,27 @@ import os
 SQL = """
 WITH base AS (
   SELECT
-    fia.lean_control_service_id      AS lean_control_service_id,
-    lpbd.jira_backlog_id             AS jira_backlog_id,
-    si.it_business_service_sysid     AS service_id,
-    bs.service_correlation_id        AS bs_correlation_id,
-    bs.service                       AS service_name,
-    bac.correlation_id               AS app_id,
-    bac.business_application_name    AS app_name,
-    si.correlation_id                AS instance_id,
-    si.it_service_instance           AS instance_name,
-    si.environment                   AS environment,
-    si.install_type                  AS install_type
-  FROM public.vwsfitserviceinstance AS si
-  JOIN public.lean_control_application      AS fia
-    ON fia.servicenow_app_id = si.correlation_id
-  JOIN public.lean_control_product_backlog_details AS lpbd
-    ON lpbd.lct_product_id = fia.lean_control_service_id
-  JOIN public.vwsfbusinessapplication        AS bac
-    ON si.business_application_sysid = bac.business_application_sys_id
-  JOIN public.vwsfitbusinessservice          AS bs
-    ON si.it_business_service_sysid = bs.it_business_service_sysid
+        fia.lean_control_service_id      AS lean_control_service_id,
+        lpbd.jira_backlog_id             AS jira_backlog_id,
+        si.it_business_service_sysid     AS service_id,
+        bs.service_correlation_id        AS bs_correlation_id,
+        bs.service                       AS service_name,
+        bac.correlation_id               AS app_id,
+        bac.business_application_name    AS app_name,
+        si.correlation_id                AS instance_id,
+        si.it_service_instance           AS instance_name,
+        si.environment                   AS environment,
+        si.install_type                  AS install_type
+    FROM public.vwsfitserviceinstance AS si
+    JOIN public.lean_control_application      AS fia
+      ON fia.servicenow_app_id = si.correlation_id
+    JOIN public.lean_control_product_backlog_details AS lpbd
+      ON lpbd.lct_product_id = fia.lean_control_service_id
+     AND lpbd.is_parent = TRUE
+    JOIN public.vwsfbusinessapplication        AS bac
+      ON si.business_application_sysid = bac.business_application_sys_id
+    JOIN public.vwsfitbusinessservice          AS bs
+      ON si.it_business_service_sysid = bs.it_business_service_sysid
 ),
 services AS (
   SELECT DISTINCT
