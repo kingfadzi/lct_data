@@ -1,7 +1,7 @@
 # Script 2: treelib_render.py
-# Reads CSV, builds hierarchy using treelib with recursive insertion,
-# and writes a Markdown representation of the tree to a .md file,
-# including key metadata.
+# This script reads the CSV produced by generate_dataset.py,
+# builds the hierarchy using treelib, and writes a Markdown
+# representation of the tree to a .md file, including key metadata.
 
 #!/usr/bin/env python3
 import argparse
@@ -18,82 +18,75 @@ METADATA_FIELDS = [
 ]
 
 
-def build_children_map(df):
-    children = {}
-    for row in df.itertuples():
-        pid = row.parent if pd.notna(row.parent) else 'Business Services'
-        children.setdefault(pid, []).append(row.id)
-    return children
-
-
-def build_meta_map(df):
-    meta = {}
-    for row in df.itertuples():
-        meta[row.id] = {tag: getattr(row, col) for col, tag in METADATA_FIELDS if pd.notna(getattr(row, col))}
-        # include name separately
-        meta[row.id]['name'] = row.name
-    return meta
-
-
-def add_nodes_recursively(tree, children_map, meta_map, parent_id):
-    for child_id in children_map.get(parent_id, []):
-        m = meta_map.get(child_id, {})
-        name = m.get('name', child_id)
-        tag = name  # plain tag; full label constructed in render
-        tree.create_node(tag=tag, identifier=child_id, parent=parent_id, data=m)
-        add_nodes_recursively(tree, children_map, meta_map, child_id)
-
-
 def build_tree(df):
     tree = Tree()
-    # synthetic root
+    # Create synthetic root
     root_id = 'Business Services'
-    tree.create_node(tag=root_id, identifier=root_id, data={})
-    children_map = build_children_map(df)
-    meta_map = build_meta_map(df)
-    # recursively add all nodes
-    add_nodes_recursively(tree, children_map, meta_map, root_id)
+    tree.create_node(tag='Business Services', identifier=root_id)
+
+    # Add all nodes
+    for row in df.itertuples():
+        parent = row.parent if pd.notna(row.parent) else root_id
+        node_id = row.id
+        # Build metadata dict
+        meta = {}
+        for col, tag in METADATA_FIELDS:
+            val = getattr(row, col, None)
+            if pd.notna(val):
+                meta[tag] = val
+        # Determine entity label
+        name = row.name
+        # tag will be updated when rendering
+        tree.create_node(tag=name, identifier=node_id, parent=parent, data=meta)
     return tree
 
 
 def render_markdown(tree, out_file):
     lines = []
-
     def recurse(node_id, prefix, is_last):
         node = tree.get_node(node_id)
+        # Branch characters
         branch = '└── ' if is_last else '├── '
         line = prefix + (branch if prefix else '')
-        # Tag render with metadata
+        # Build label
         if node_id == tree.root:
             label = node.tag
         else:
-            m = node.data or {}
             # Determine type
-            if not tree.children(node_id):
+            if node.is_leaf():
                 ent_type = 'Service_Instance'
-                keys = ['Instance', 'InstID', 'Env', 'Type']
-            elif tree.parent(node_id).identifier == tree.root:
+                tags = ['Instance', 'InstID', 'Env', 'Type']
+            elif node.bpointer == tree.root:
                 ent_type = 'Business_Service'
-                keys = ['LCP', 'Backlog', 'Service']
+                tags = ['LCP', 'Backlog', 'Service']
             else:
                 ent_type = 'App'
-                keys = ['AppID', 'AppName', 'LCP', 'Backlog']
-            base = f"{ent_type}: {node.tag}({node_id})"
+                tags = ['App', 'AppID', 'LCP', 'Backlog']
+            # Base label
+            base = f"{ent_type}: {node.tag}({node.identifier})"
+            # Metadata
             parts = []
+            meta = node.data or {}
+            # For App, we include AppID, AppName
             if ent_type == 'App':
-                parts.append(f"AppID: {node_id}")
+                parts.append(f"AppID: {node.identifier}")
                 parts.append(f"AppName: {node.tag}")
-            for key in keys:
-                if key in m:
-                    parts.append(f"{key}: {m[key]}")
+            for key in tags:
+                val = meta.get(key)
+                if val is not None and key not in ['AppID','AppName']:
+                    parts.append(f"{key}: {val}")
             label = base + (' [' + '; '.join(parts) + ']' if parts else '')
         lines.append(line + label)
+        # Recurse
         children = tree.children(node_id)
-        for idx, c in enumerate(children):
-            new_prefix = prefix + ('    ' if is_last else '│   ')
-            recurse(c.identifier, new_prefix, idx == len(children)-1)
+        count = len(children)
+        for idx, child in enumerate(children):
+            next_prefix = prefix + ('    ' if is_last else '│   ')
+            recurse(child.identifier, next_prefix, idx == count-1)
 
     recurse(tree.root, '', True)
+
+    # Write to file
     with open(out_file, 'w') as f:
         f.write('```text\n')
         f.write('\n'.join(lines))
@@ -103,8 +96,10 @@ def render_markdown(tree, out_file):
 
 def main():
     parser = argparse.ArgumentParser(description="Render tree from CSV via treelib")
-    parser.add_argument("--input", default="tree_edges.csv", help="CSV from generate_dataset.py")
-    parser.add_argument("--output", default="tree.md", help="Output Markdown file")
+    parser.add_argument("--input", default="tree_edges.csv",
+                        help="Input CSV file path from generate_dataset.py")
+    parser.add_argument("--output", default="tree.md",
+                        help="Output Markdown file path")
     args = parser.parse_args()
 
     df = pd.read_csv(args.input)
