@@ -3,3 +3,4 @@ PyYAML
 SQLAlchemy
 rich
 sqlparse
+pandas

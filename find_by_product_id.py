@@ -1,70 +1,74 @@
 #!/usr/bin/env python3
 
-import os
-import yaml
 import argparse
 import json
 import logging
+import os
+import yaml
+import pandas as pd
+from sqlalchemy import create_engine, text
 import sqlparse
-from sqlalchemy import create_engine, Column, String
-from sqlalchemy.orm import declarative_base, Session, aliased
 
-# ——— Setup Logging ———
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)s: %(message)s')
+# --- Setup Logging ---
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
 
-# ——— Models ———
-Base = declarative_base()
-
-class LeanControlApplication(Base):
-    __tablename__ = 'lean_control_application'
-    __table_args__ = {'schema': 'public'}
-    lean_control_service_id = Column(String, primary_key=True)
-    servicenow_app_id       = Column(String, index=True)
-
-class ProductBacklogDetails(Base):
-    __tablename__ = 'lean_control_product_backlog_details'
-    __table_args__ = {'schema': 'public'}
-    lct_product_id  = Column(String, primary_key=True)
-    jira_backlog_id = Column(String)
-
-class ServiceInstance(Base):
-    __tablename__ = 'vwsfitserviceinstance'
-    __table_args__ = {'schema': 'public'}
-    correlation_id             = Column(String, primary_key=True)
-    it_business_service        = Column('it_business_service', String)
-    business_application_sysid = Column(String)
-    it_service_instance        = Column(String)
-    environment                = Column(String)
-    install_type               = Column(String)
-
-class BusinessApp(Base):
-    __tablename__ = 'vwsfbusinessapplication'
-    __table_args__ = {'schema': 'public'}
-    business_application_sys_id       = Column(String, primary_key=True)
-    correlation_id                    = Column(String, index=True)
-    business_application_name         = Column(String)
-    application_parent_correlation_id = Column(String)
-
-# ——— Helpers ———
+# --- Helpers ---
 
 def load_config(path):
     with open(path, 'r') as f:
         return yaml.safe_load(f)
 
-def build_engine(cfg):
-    db = cfg['database']
-    url = (
-        f"postgresql+psycopg2://{db['user']}:{db['password']}"
-        f"@{db['host']}:{db['port']}/{db['name']}"
-    )
-    return create_engine(url, echo=False)
+def build_service_tree(df):
+    # Assign app_id as parent_id if present, else child_id
+    df = df.copy()
+    df['app_id'] = df['parent_id'].combine_first(df['child_id'])
+    df['app_name'] = df['parent_name'].combine_first(df['child_name'])
 
-# ——— Main ———
+    def get_instances(inst_df):
+        return inst_df[['instance_id', 'it_service_instance', 'environment', 'install_type']].to_dict('records')
+
+    def get_children(app_df):
+        children = app_df[app_df['parent_id'].notna()]
+        if children.empty:
+            return []
+        return children.groupby('child_id').apply(
+            lambda g: {
+                'app_id': g['child_id'].iloc[0],
+                'app_name': g['child_name'].iloc[0],
+                'service_instances': get_instances(g)
+            }
+        ).tolist()
+
+    def get_apps(svc_df):
+        apps = []
+        for app_id, app_df in svc_df.groupby('app_id'):
+            main_instances = app_df[app_df['parent_id'].isna()]
+            apps.append({
+                'app_id': app_id,
+                'app_name': app_df['app_name'].iloc[0],
+                'service_instances': get_instances(main_instances),
+                'children': get_children(app_df)
+            })
+        return apps
+
+    services = df.groupby('biz_service_id').apply(
+        lambda svc_df: {
+            'it_business_service': svc_df['biz_service_id'].iloc[0],
+            'lean_control_service_id': svc_df['lean_control_service_id'].iloc[0],
+            'jira_backlog_id': svc_df['jira_backlog_id'].iloc[0],
+            'apps': get_apps(svc_df)
+        }
+    ).tolist()
+
+    return services
+
+# --- Main ---
+
 def main():
     parser = argparse.ArgumentParser(
         prog="find_by_product_id.py",
-        description="Return business services, each with nested apps and service instances"
+        description="Return business services with nested apps and service instances using pandas"
     )
     parser.add_argument(
         '-c', '--config', default='config.yaml',
@@ -77,115 +81,53 @@ def main():
     args = parser.parse_args()
 
     cfg = load_config(args.config)
-    engine = build_engine(cfg)
+    db = cfg['database']
+    url = (
+        f"postgresql+psycopg2://{db['user']}:{db['password']}"
+        f"@{db['host']}:{db['port']}/{db['name']}"
+    )
+    engine = create_engine(url)
 
-    ChildApp  = aliased(BusinessApp)
-    ParentApp = aliased(BusinessApp)
+    sql = text("""
+    SELECT
+      si.it_business_service AS biz_service_id,
+      lcp.lean_control_service_id,
+      pbl.jira_backlog_id,
+      parent.correlation_id   AS parent_id,
+      parent.business_application_name AS parent_name,
+      child.correlation_id    AS child_id,
+      child.business_application_name AS child_name,
+      si.correlation_id       AS instance_id,
+      si.it_service_instance,
+      si.environment,
+      si.install_type
+    FROM public.lean_control_application lcp
+    JOIN public.vwsfitserviceinstance si
+      ON lcp.servicenow_app_id = si.correlation_id
+    JOIN public.lean_control_product_backlog_details pbl
+      ON pbl.lct_product_id = lcp.lean_control_service_id
+    JOIN public.vwsfbusinessapplication child
+      ON si.business_application_sysid = child.business_application_sys_id
+    LEFT JOIN public.vwsfbusinessapplication parent
+      ON child.application_parent_correlation_id = parent.correlation_id
+    """)
 
-    with Session(engine) as session:
-        # build query
-        q = (
-            session.query(
-                ServiceInstance.it_business_service.label('biz_service_id'),
-                LeanControlApplication.lean_control_service_id.label('lean_control_service_id'),
-                ProductBacklogDetails.jira_backlog_id.label('jira_backlog_id'),
-                ParentApp.correlation_id.label('parent_id'),
-                ParentApp.business_application_name.label('parent_name'),
-                ChildApp.correlation_id.label('child_id'),
-                ChildApp.business_application_name.label('child_name'),
-                ServiceInstance.correlation_id.label('instance_id'),
-                ServiceInstance.it_service_instance,
-                ServiceInstance.environment,
-                ServiceInstance.install_type
-            )
-            .join(LeanControlApplication,
-                  LeanControlApplication.servicenow_app_id == ServiceInstance.correlation_id)
-            .join(ProductBacklogDetails,
-                  ProductBacklogDetails.lct_product_id == LeanControlApplication.lean_control_service_id)
-            .join(ChildApp,
-                  ServiceInstance.business_application_sysid == ChildApp.business_application_sys_id)
-            .outerjoin(ParentApp,
-                       ChildApp.application_parent_correlation_id == ParentApp.correlation_id)
-        )
+    params = {}
+    if args.lean_control_service_ids:
+        sql = text(sql.text + " WHERE lcp.lean_control_service_id = ANY(:ids) ")
+        params['ids'] = args.lean_control_service_ids
 
-        if args.lean_control_service_ids:
-            q = q.filter(
-                LeanControlApplication.lean_control_service_id.in_(args.lean_control_service_ids)
-            )
+    # Log SQL
+    raw_sql = sql.bindparams(**params).compile(engine, compile_kwargs={"literal_binds": True})
+    formatted_sql = sqlparse.format(str(raw_sql), reindent=True, keyword_case='upper')
+    logger.debug("Generated SQL:\n%s", formatted_sql)
 
-        # log SQL
-        raw_sql = str(q.statement.compile(
-            dialect=engine.dialect, compile_kwargs={'literal_binds': True}
-        ))
-        formatted_sql = sqlparse.format(raw_sql, reindent=True, keyword_case='upper')
-        logger.debug("Generated SQL:\n%s", formatted_sql)
+    # Load into DataFrame
+    df = pd.read_sql(sql, engine, params=params)
 
-        rows = q.all()
-
-    # group into services -> apps -> instances
-    services = {}
-    for row in rows:
-        svc_id = row.biz_service_id
-        lean_id = row.lean_control_service_id
-        jira_id = row.jira_backlog_id
-        pid = row.parent_id
-        cid = row.child_id
-        inst = {
-            'instance_id': row.instance_id,
-            'it_service_instance': row.it_service_instance,
-            'environment': row.environment,
-            'install_type': row.install_type
-        }
-
-        # initialize service
-        service = services.setdefault(svc_id, {
-            'it_business_service': svc_id,
-            'lean_control_service_id': lean_id,
-            'jira_backlog_id': jira_id,
-            'apps': {}
-        })
-
-        # determine app key and record
-        if pid is None:
-            app_key = cid
-            app_name = row.child_name
-        else:
-            app_key = pid
-            app_name = row.parent_name
-
-        app = service['apps'].setdefault(app_key, {
-            'app_id': app_key,
-            'app_name': app_name,
-            'service_instances': [],
-            'children': {}
-        })
-
-        # dedupe instance
-        if not any(si['instance_id'] == inst['instance_id'] for si in app['service_instances']):
-            app['service_instances'].append(inst)
-
-        # children grouping
-        if pid is not None:
-            child = app['children'].setdefault(cid, {
-                'app_id': cid,
-                'app_name': row.child_name,
-                'service_instances': []
-            })
-            if not any(si['instance_id']==inst['instance_id'] for si in child['service_instances']):
-                child['service_instances'].append(inst)
-
-    # finalize structure
-    output = []
-    for svc in services.values():
-        # convert apps dict to list and children dicts
-        apps_list = []
-        for app in svc['apps'].values():
-            app['children'] = list(app['children'].values())
-            apps_list.append(app)
-        svc['apps'] = apps_list
-        output.append(svc)
-
-    print(json.dumps(output, indent=2))
+    # Build and print nested structure
+    services = build_service_tree(df)
+    print(json.dumps(services, indent=2))
 
 if __name__ == '__main__':
     main()
