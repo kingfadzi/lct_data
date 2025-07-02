@@ -1,53 +1,67 @@
-# treelib_render_simple.py
-# Simple script to read id/parent/name from CSV and render hierarchy using treelib,
-# then write the ASCII tree into a Markdown file with proper wrapping.
-
-#!/usr/bin/env python3
 import argparse
 import pandas as pd
 from treelib import Tree
 import io
+import contextlib
+
+
+def build_children_map(df, root_id='Business Services'):
+    children = {}
+    for _, row in df.iterrows():
+        parent = row['parent'] if row['parent'] else root_id
+        children.setdefault(parent, []).append(row['id'])
+    return children
 
 
 def render_tree(csv_path, markdown_path):
-    # Read CSV with columns: id, parent, name
+    # Load CSV
     df = pd.read_csv(csv_path, dtype=str).fillna('')
-
-    # Build the tree
-    tree = Tree()
     root_id = 'Business Services'
-    tree.create_node(tag='Business Services', identifier=root_id)
 
-    for _, row in df.iterrows():
-        node_id = row['id']
-        parent_id = row['parent'] or root_id
-        tag = f"{row['name']} ({node_id})"
-        # Ensure parent exists
-        if not tree.contains(parent_id):
-            tree.create_node(tag=parent_id, identifier=parent_id, parent=root_id)
-        # Add node
-        if not tree.contains(node_id):
-            tree.create_node(tag=tag, identifier=node_id, parent=parent_id)
+    # Build parent->children map and name lookup
+    children_map = build_children_map(df, root_id)
+    name_map = df.set_index('id')['name'].to_dict()
 
-    # Display to console
+    # Initialize tree with synthetic root
+    tree = Tree()
+    tree.create_node(tag=root_id, identifier=root_id)
+
+    # Recursively add nodes
+    def add_nodes(parent_id):
+        for child_id in children_map.get(parent_id, []):
+            if child_id == root_id:
+                continue
+            if tree.contains(child_id):
+                add_nodes(child_id)
+                continue
+            node_name = name_map.get(child_id, child_id)
+            tag = f"{node_name} ({child_id})"
+            tree.create_node(tag=tag, identifier=child_id, parent=parent_id)
+            add_nodes(child_id)
+
+    add_nodes(root_id)
+
+    # Print to console
     tree.show()
 
-    # Capture ASCII tree into Markdown
+    # Capture ASCII output
     buf = io.StringIO()
-    tree.show(file=buf)
+    with contextlib.redirect_stdout(buf):
+        tree.show()
     ascii_tree = buf.getvalue()
 
     # Write to Markdown file
     with open(markdown_path, 'w') as f:
-        f.write('```text\n')
+        f.write("```text\n")
         f.write(ascii_tree)
-        f.write('\n```\n')
-    print(f"Markdown tree written to {markdown_path}")
+        f.write("\n```\n")
+
+    print(f"Markdown hierarchy written to {markdown_path}")
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Render basic hierarchy via treelib and export to Markdown"
+        description="Render hierarchy via treelib to Markdown"
     )
     parser.add_argument(
         "--input", required=True,
@@ -59,7 +73,6 @@ def main():
     )
     args = parser.parse_args()
     render_tree(args.input, args.output)
-
 
 if __name__ == '__main__':
     main()
