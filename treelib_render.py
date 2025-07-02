@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import argparse
 import pandas as pd
 from treelib import Tree
@@ -21,6 +22,17 @@ def render_tree(csv_path, markdown_path):
     # Build parent->children map and name lookup
     children_map = build_children_map(df, root_id)
     name_map = df.set_index('id')['name'].to_dict()
+
+    # Clean children_map: ensure only valid parents
+    valid_ids = set(df['id']) | {root_id}
+    clean_map = {pid: kids[:] for pid, kids in children_map.items() if pid in valid_ids}
+    extras = []
+    for pid, kids in children_map.items():
+        if pid not in valid_ids:
+            extras.extend(kids)
+    if extras:
+        clean_map.setdefault(root_id, []).extend(extras)
+    children_map = clean_map
 
     # Initialize tree with synthetic root
     tree = Tree()
