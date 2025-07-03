@@ -3,7 +3,8 @@ import argparse
 import yaml
 import pandas as pd
 from sqlalchemy import create_engine
-from collections import Counter
+from collections import defaultdict
+from itertools import combinations
 
 def infer_cardinality(child_df: pd.DataFrame, fk_col: str) -> str:
     """
@@ -15,16 +16,7 @@ def infer_cardinality(child_df: pd.DataFrame, fk_col: str) -> str:
     return "1:N" if total > distinct else "1:1"
 
 def load_db_url(config_path: str) -> str:
-    """
-    Load database settings from YAML and build a SQLAlchemy URL.
-    Expects YAML like:
-      database:
-        host: 192.168.1.188
-        port: 5432
-        name: lct_data
-        user: postgres
-        password: postgres
-    """
+
     with open(config_path, 'r') as f:
         cfg = yaml.safe_load(f)
     db = cfg.get('database', {})
@@ -75,12 +67,16 @@ def main():
             "cardinality":  card
         })
 
-    # 5) Detect many-to-many via join tables
-    child_counts = Counter(r["child_table"] for r in results)
-    for table, cnt in child_counts.items():
-        if cnt == 2:
-            parents = [r["parent_table"] for r in results if r["child_table"] == table]
-            print(f"Detected M:N between {parents[0]} and {parents[1]} via {table}")
+    # 5) Generic M:N detection via join tables with ≥2 one-to-many legs
+    child_to_parents = defaultdict(list)
+    for r in results:
+        if r["cardinality"] == "1:N":
+            child_to_parents[r["child_table"]].append(r["parent_table"])
+
+    for child_tbl, parents in child_to_parents.items():
+        if len(parents) >= 2:
+            for p1, p2 in combinations(parents, 2):
+                print(f"Detected M:N between {p1} and {p2} via {child_tbl}")
 
     # 6) Print results with parent first
     df_res = pd.DataFrame(results)[[
