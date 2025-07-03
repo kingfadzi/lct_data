@@ -65,9 +65,9 @@ This section presents a **composite representation** in which all entities are a
 #### Example Slice
 
 ```text
-Business Service (SRVC-002) [LCPs: PROD-001, PROD-002; Backlogs: BACK-101, BACK-102]
-└─ Business Application (ITBA-12345) [LCPs: PROD-001; Backlogs: BACK-101, BACK-103]
-   └─ Service Instance (SVCINST-0001) [LCPs: PROD-001, PROD-003; Backlogs: BACK-101, BACK-103]
+Business Service (SRVC-002) [LCP: PROD-001; Backlog: BACK-101]
+└─ Business Application (ITBA-12345) [LCP: PROD-002; Backlog: BACK-101]
+   └─ Service Instance (SVCINST-0001) [LCP: PROD-003; Backlog: BACK-103]
 ```
 
 > **Note:** The bracketed lists reflect the existing many-to-many relationships in the current model. This overlay makes it immediately clear where redundant links, orphaned mappings, and control ambiguities exist—providing a direct contrast to the clean, normalized hierarchy that underpins the future target state.
