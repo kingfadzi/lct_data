@@ -72,8 +72,15 @@ def main():
             "cardinality":  card
         })
 
-    # 5) Present results
+    # 5) Present results with PARENT first
     df_res = pd.DataFrame(results)
+    df_res = df_res[[
+        "parent_table",
+        "pk_col",
+        "child_table",
+        "fk_col",
+        "cardinality"
+    ]]
     print(df_res.to_markdown(index=False))
 
 if __name__ == "__main__":
