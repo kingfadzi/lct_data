@@ -5,3 +5,148 @@ database:
   user: postgres
   password: postgres
 
+bases:
+  by_si: |
+    WITH base AS (
+      SELECT
+        fia.lean_control_service_id      AS lean_control_service_id,
+        lpbd.jira_backlog_id             AS jira_backlog_id,
+        bs.service_correlation_id        AS service_id,
+        bs.service                       AS service_name,
+        bac.correlation_id               AS app_id,
+        bac.business_application_name    AS app_name,
+        si.correlation_id                AS instance_id,
+        si.it_service_instance           AS instance_name,
+        si.environment                   AS environment,
+        si.install_type                  AS install_type
+      FROM public.vwsfitserviceinstance AS si
+      JOIN public.lean_control_application AS fia
+        ON fia.servicenow_app_id = si.correlation_id
+      JOIN public.lean_control_product_backlog_details AS lpbd
+        ON lpbd.lct_product_id = fia.lean_control_service_id
+       AND lpbd.is_parent = TRUE
+      JOIN public.vwsfbusinessapplication AS bac
+        ON si.business_application_sysid = bac.business_application_sys_id
+      JOIN public.vwsfitbusinessservice AS bs
+        ON si.it_business_service_sysid = bs.it_business_service_sysid
+    )
+
+  by_ts: |
+    WITH base AS (
+      SELECT
+        lca.lean_control_service_id      AS lean_control_service_id,
+        lpbd.jira_backlog_id             AS jira_backlog_id,
+        bs.service_correlation_id        AS service_id,
+        bs.service                       AS service_name,
+        child_app.correlation_id         AS app_id,
+        child_app.business_application_name AS app_name,
+        si.correlation_id                AS instance_id,
+        si.it_service_instance           AS instance_name,
+        si.environment                   AS environment,
+        si.install_type                  AS install_type
+      FROM public.vwsfitbusinessservice AS bs
+      JOIN public.vwsfitserviceinstance AS si
+        ON bs.it_business_service_sysid = si.it_business_service_sysid
+      JOIN public.lean_control_application AS lca
+        ON lca.servicenow_app_id = si.correlation_id
+      JOIN public.lean_control_product_backlog_details AS lpbd
+        ON lpbd.lct_product_id = lca.lean_control_service_id
+       AND lpbd.is_parent = TRUE
+      JOIN public.vwsfbusinessapplication AS child_app
+        ON si.business_application_sysid = child_app.business_application_sys_id
+      LEFT JOIN public.vwsfbusinessapplication AS parent_app
+        ON child_app.application_parent_correlation_id = parent_app.correlation_id
+    )
+
+pipeline: |
+  , services AS (
+      SELECT DISTINCT
+        service_id      AS id,
+        service_name    AS name,
+        lean_control_service_id,
+        jira_backlog_id
+      FROM base
+    )
+  , edges AS (
+      -- 0) root
+      SELECT
+        NULL                 AS parent,
+        'Business Services'  AS id,
+        'Business Services'  AS name,
+        NULL                 AS lean_control_service_id,
+        NULL                 AS jira_backlog_id,
+        NULL                 AS app_id,
+        NULL                 AS app_name,
+        NULL                 AS instance_id,
+        NULL                 AS instance_name,
+        NULL                 AS environment,
+        NULL                 AS install_type
+
+      UNION ALL
+
+      -- 1) services under root
+      SELECT
+        'Business Services'  AS parent,
+        id                   AS id,
+        name                 AS name,
+        lean_control_service_id,
+        jira_backlog_id,
+        NULL                 AS app_id,
+        NULL                 AS app_name,
+        NULL                 AS instance_id,
+        NULL                 AS instance_name,
+        NULL                 AS environment,
+        NULL                 AS install_type
+      FROM services
+
+      UNION ALL
+
+      -- 2) apps under service
+      SELECT
+        b.service_id         AS parent,
+        b.app_id             AS id,
+        b.app_name           AS name,
+        b.lean_control_service_id,
+        b.jira_backlog_id,
+        b.app_id             AS app_id,
+        b.app_name           AS app_name,
+        NULL                 AS instance_id,
+        NULL                 AS instance_name,
+        NULL                 AS environment,
+        NULL                 AS install_type
+      FROM base b
+
+      UNION ALL
+
+      -- 3) instances under app
+      SELECT
+        b.app_id             AS parent,
+        b.instance_id        AS id,
+        b.instance_name      AS name,
+        b.lean_control_service_id,
+        b.jira_backlog_id,
+        b.app_id             AS app_id,
+        b.app_name           AS app_name,
+        b.instance_id        AS instance_id,
+        b.instance_name      AS instance_name,
+        b.environment,
+        b.install_type
+      FROM base b
+    )
+  SELECT
+    id,
+    parent,
+    name,
+    lean_control_service_id,
+    jira_backlog_id,
+    app_id,
+    app_name,
+    instance_id,
+    instance_name,
+    environment,
+    install_type
+  FROM edges
+  ORDER BY
+    CASE WHEN id = 'Business Services' THEN 0 ELSE 1 END,
+    parent,
+    id
