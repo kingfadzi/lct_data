@@ -3,6 +3,7 @@ import argparse
 import yaml
 import pandas as pd
 from sqlalchemy import create_engine
+from collections import Counter
 
 def infer_cardinality(child_df: pd.DataFrame, fk_col: str) -> str:
     """
@@ -14,17 +15,20 @@ def infer_cardinality(child_df: pd.DataFrame, fk_col: str) -> str:
     return "1:N" if total > distinct else "1:1"
 
 def load_db_url(config_path: str) -> str:
-
+    """
+    Load database settings from YAML and build a SQLAlchemy URL.
+    Expects YAML like:
+      database:
+        host: 192.168.1.188
+        port: 5432
+        name: lct_data
+        user: postgres
+        password: postgres
+    """
     with open(config_path, 'r') as f:
         cfg = yaml.safe_load(f)
     db = cfg.get('database', {})
-    return "postgresql://{user}:{pwd}@{host}:{port}/{name}".format(
-        user=db['user'],
-        pwd=db['password'],
-        host=db['host'],
-        port=db['port'],
-        name=db['name']
-    )
+    return f"postgresql://{db['user']}:{db['password']}@{db['host']}:{db['port']}/{db['name']}"
 
 def main():
     parser = argparse.ArgumentParser(
@@ -36,20 +40,20 @@ def main():
     )
     args = parser.parse_args()
 
-    # 1) Build DB URL from config.yaml or provided file
+    # 1) Build DB URL
     db_url = load_db_url(args.config)
 
-    # 2) Load relationships list from relationships.yaml
+    # 2) Load relationships
     with open("relationships.yaml", 'r') as f:
         rel_cfg = yaml.safe_load(f)
     relations = rel_cfg.get('relationships', [])
     if not relations:
         raise SystemExit("No relationships found in relationships.yaml.")
 
-    # 3) Connect to your DB
+    # 3) Connect
     engine = create_engine(db_url)
 
-    # 4) Loop and infer
+    # 4) Infer cardinalities
     results = []
     for rel in relations:
         child_tbl = rel['child_table']
@@ -57,7 +61,6 @@ def main():
         parent_tbl= rel['parent_table']
         pk_col    = rel.get('pk_col', 'id')
 
-        # only pull the FK column for speed
         df_child = pd.read_sql_table(
             table_name=child_tbl,
             con=engine,
@@ -65,16 +68,22 @@ def main():
         )
         card = infer_cardinality(df_child, fk_col)
         results.append({
-            "child_table":  child_tbl,
-            "fk_col":       fk_col,
             "parent_table": parent_tbl,
             "pk_col":       pk_col,
+            "child_table":  child_tbl,
+            "fk_col":       fk_col,
             "cardinality":  card
         })
 
-    # 5) Present results with PARENT first
-    df_res = pd.DataFrame(results)
-    df_res = df_res[[
+    # 5) Detect many-to-many via join tables
+    child_counts = Counter(r["child_table"] for r in results)
+    for table, cnt in child_counts.items():
+        if cnt == 2:
+            parents = [r["parent_table"] for r in results if r["child_table"] == table]
+            print(f"Detected M:N between {parents[0]} and {parents[1]} via {table}")
+
+    # 6) Print results with parent first
+    df_res = pd.DataFrame(results)[[
         "parent_table",
         "pk_col",
         "child_table",
