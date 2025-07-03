@@ -56,11 +56,11 @@ This section presents a **composite representation** in which all entities are a
 
 - **Service Instance View (`si_hierarchy`)**  
   Shows entities mapped directly to **Service Instances**, with legacy LCP and backlog annotations preserved.  
-  [Entities currently mapped to Technical Services](./ts_hierarchy.md)
+  [Entities currently mapped to Service Instances](./si_hierarchy.md)
 
 - **Technical Service View (`ts_hierarchy`)**  
   Shows entities mapped to **ServiceNow Technical Services**, likewise annotated with current many-to-many links.  
-  [Entities currently mapped to Service Instances](./si_hierarchy.md)
+  [Entities currently mapped to Technical Services](./ts_hierarchy.md)
 
 #### Example Slice
 
