@@ -1,0 +1,20 @@
+relationships:
+  - child_table: vwsfitserviceinstance
+    fk_col: correlation_id
+    parent_table: lean_control_application
+    pk_col: servicenow_app_id
+
+  - child_table: lean_control_application
+    fk_col: lean_control_service_id
+    parent_table: lean_control_product_backlog_details
+    pk_col: lct_product_id
+
+  - child_table: vwsfitserviceinstance
+    fk_col: business_application_sysid
+    parent_table: vwsfbusinessapplication
+    pk_col: business_application_sys_id
+
+  - child_table: vwsfitserviceinstance
+    fk_col: it_business_service_sysid
+    parent_table: vwsfitbusinessservice
+    pk_col: it_business_service_sysid

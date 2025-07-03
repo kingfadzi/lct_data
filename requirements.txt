@@ -6,3 +6,4 @@ sqlparse
 pandas
 anytree
 treelib
+tabulate
