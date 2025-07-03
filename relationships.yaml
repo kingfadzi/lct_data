@@ -5,10 +5,10 @@ relationships:
     child_table: vwsfitserviceinstance
     fk_col: correlation_id
 
-  - parent_table: lean_control_product_backlog_details
-    pk_col: lct_product_id
-    child_table: lean_control_application
-    fk_col: lean_control_service_id
+  - parent_table: lean_control_application
+    pk_col: lean_control_service_id
+    child_table: lean_control_product_backlog_details
+    fk_col: lct_product_id
 
   - parent_table: vwsfbusinessapplication
     pk_col: business_application_sys_id
