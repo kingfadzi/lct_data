@@ -52,7 +52,7 @@ _The sections and hierarchies that follow are based on the ServiceNow CMDB’s c
 
 ### 5. Composite Normalized View with Legacy Annotations
 
-This section presents a **composite representation** in which all entities are arranged in a fully normalized, one-to-many hierarchy, while retaining inline annotations of the existing many-to-many mappings to illustrate their current configuration. Two complementary views are available:
+This section presents a **composite representation** in which all entities are arranged in a fully normalized, one-to-many hierarchy, while retaining inline annotations of the existing many-to-many mappings to illustrate their current configuration. Two views are available based on the current underlying model:
 
 - **Service Instance View (`si_hierarchy`)**  
   Shows entities mapped directly to **Service Instances**, with legacy LCP and backlog annotations preserved.  
