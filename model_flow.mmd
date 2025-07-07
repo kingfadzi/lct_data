@@ -20,8 +20,8 @@ flowchart LR
         BS["Business Service"]
     end
 
-    LCP --> BA
-    Git --> BA
-    Jira --> Git
-    BA --> SI
-    SI --> BS
+    LCP -- "1:*" --> BA
+    Git -- "*:1" --> BA
+    Jira -- "1:*" --> Git
+    BA -- "1:*" --> SI
+    SI -- "*:1" --> BS
