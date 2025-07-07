@@ -1,0 +1,27 @@
+flowchart LR
+    subgraph Governance["Governance"]
+        LCP["Lean Control Product"]
+    end
+
+    subgraph Planning["Planning & Ownership"]
+        Jira["Jira Project"]
+        Git["GitLab Repository"]
+    end
+
+    subgraph Development["Application"]
+        BA["Business Application (CMDB)"]
+    end
+
+    subgraph Deployment["Deployment"]
+        SI["Service Instance"]
+    end
+
+    subgraph Value["Business Value"]
+        BS["Business Service"]
+    end
+
+    LCP --> BA
+    Git --> BA
+    Jira --> Git
+    BA --> SI
+    SI --> BS
