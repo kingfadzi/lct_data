@@ -1,4 +1,8 @@
 flowchart LR
+    subgraph StackLayer["Compliance Boundary"]
+        Stack["Stack"]
+    end
+
     subgraph Governance["Governance"]
         LCP["Lean Control Product"]
     end
@@ -21,7 +25,8 @@ flowchart LR
         BS["Business Service"]
     end
 
-    LCP -- "1:*" --> BA
+    Stack -- "1:*" --> LCP
+    LCP -- "1:1" --> BA
     GitWS -. "1:*" .-> GitRepo
     GitWS -- "1:1" --> BA
     Jira -- "1:*" --> GitWS
@@ -30,7 +35,6 @@ flowchart LR
     GitRepo -. "*:1" .-> BA
     Jira -. "1:1" .-> GitRepo
 
-%% Style dotted lines in gray
-    linkStyle 1 stroke:#888,stroke-width:2px,stroke-dasharray: 5,5;
-linkStyle 6 stroke:#888,stroke-width:2px,stroke-dasharray: 5,5;
-linkStyle 7 stroke:#888,stroke-width:2px,stroke-dasharray: 5,5;
+    linkStyle 2 stroke:#888,stroke-width:2px,stroke-dasharray:5,5;
+linkStyle 7 stroke:#888,stroke-width:2px,stroke-dasharray:5,5;
+linkStyle 8 stroke:#888,stroke-width:2px,stroke-dasharray:5,5;
