@@ -5,7 +5,8 @@ flowchart LR
 
     subgraph Planning["Planning & Ownership"]
         Jira["Jira Project"]
-        Git["GitLab Repository"]
+        GitWS["GitLab Workspace"]
+        GitRepo["Git Repository"]
     end
 
     subgraph Development["Application"]
@@ -21,7 +22,15 @@ flowchart LR
     end
 
     LCP -- "1:*" --> BA
-    Git -- "*:1" --> BA
-    Jira -- "1:*" --> Git
+    GitWS -. "1:*" .-> GitRepo
+    GitWS -- "1:1" --> BA
+    Jira -- "1:*" --> GitWS
     BA -- "1:*" --> SI
     SI -- "*:1" --> BS
+    GitRepo -. "*:1" .-> BA
+    Jira -. "1:1" .-> GitRepo
+
+%% Style dotted lines in gray
+    linkStyle 1 stroke:#888,stroke-width:2px,stroke-dasharray: 5,5;
+linkStyle 6 stroke:#888,stroke-width:2px,stroke-dasharray: 5,5;
+linkStyle 7 stroke:#888,stroke-width:2px,stroke-dasharray: 5,5;
