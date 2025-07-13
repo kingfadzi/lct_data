@@ -3,6 +3,8 @@ import csv
 import yaml
 import os
 import sys
+from datetime import datetime, timedelta
+
 
 # --- Load Config from YAML ---
 with open("config.yaml", "r") as f:
@@ -27,7 +29,25 @@ headers = {
 }
 
 for project_key in JIRA_PROJECT_KEYS:
-    jql = f"project = {project_key} AND statusCategory != Done ORDER BY created DESC"
+
+
+    # Calculate date range for the last 12 months
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=365)  # Approximate 12 months
+    start_date_str = start_date.strftime('%Y-%m-%d')
+    end_date_str = end_date.strftime('%Y-%m-%d')
+
+    # Use 'created' field to filter issues created in the last 12 months
+    jql = (
+        f"project = {project_key} "
+        f"AND statusCategory != Done "
+        f"AND created >= \"{start_date_str}\" "
+        f"AND created <= \"{end_date_str}\" "
+        f"ORDER BY created DESC"
+    )
+
+
+
     params = {
         "jql": jql,
         "startAt": 0,
