@@ -36,7 +36,7 @@ for project_key in JIRA_PROJECT_KEYS:
     }
     all_issues = []
     while True:
-        response = requests.get(f"{JIRA_URL}/rest/api/2/search", headers=headers, params=params)
+        response = requests.get(f"{JIRA_URL}/rest/api/2/search", headers=headers, params=params, verify=False)
         if response.status_code != 200:
             raise Exception(f"Failed to fetch issues for {project_key}: {response.status_code} {response.text}")
         data = response.json()
