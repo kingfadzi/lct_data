@@ -2,6 +2,7 @@ import requests
 import argparse
 import yaml
 from pathlib import Path
+import warnings
 
 def load_config(config_path='gitlab_config.yaml'):
     """
@@ -21,10 +22,11 @@ def load_config(config_path='gitlab_config.yaml'):
 
     # Set defaults for optional keys
     config.setdefault('base_url', 'https://gitlab.com/api/v4')
+    config.setdefault('verify_ssl', True)  # Default to verifying SSL
 
     return config
 
-def get_latest_merged_mr(project_id, private_token, base_url='https://gitlab.com/api/v4'):
+def get_latest_merged_mr(project_id, private_token, base_url='https://gitlab.com/api/v4', verify_ssl=True):
     """
     Get the latest merge request merged into the main branch
     """
@@ -38,7 +40,10 @@ def get_latest_merged_mr(project_id, private_token, base_url='https://gitlab.com
     }
     headers = {'PRIVATE-TOKEN': private_token}
 
-    response = requests.get(url, params=params, headers=headers)
+    if not verify_ssl:
+        warnings.warn("SSL verification is disabled - this is not recommended for production use!")
+
+    response = requests.get(url, params=params, headers=headers, verify=verify_ssl)
     response.raise_for_status()
 
     mrs = response.json()
@@ -47,14 +52,14 @@ def get_latest_merged_mr(project_id, private_token, base_url='https://gitlab.com
 
     return mrs[0]
 
-def get_commit_messages_from_mr(project_id, private_token, mr_iid, base_url='https://gitlab.com/api/v4'):
+def get_commit_messages_from_mr(project_id, private_token, mr_iid, base_url='https://gitlab.com/api/v4', verify_ssl=True):
     """
     Get all commit messages from a merge request
     """
     url = f"{base_url}/projects/{project_id}/merge_requests/{mr_iid}/commits"
     headers = {'PRIVATE-TOKEN': private_token}
 
-    response = requests.get(url, headers=headers)
+    response = requests.get(url, headers=headers, verify=verify_ssl)
     response.raise_for_status()
 
     commits = response.json()
@@ -76,7 +81,8 @@ def main():
         latest_mr = get_latest_merged_mr(
             args.project_id,
             config['private_token'],
-            config['base_url']
+            config['base_url'],
+            config.get('verify_ssl', True)
         )
 
         mr_title = latest_mr['title']
@@ -94,7 +100,8 @@ def main():
             args.project_id,
             config['private_token'],
             mr_iid,
-            config['base_url']
+            config['base_url'],
+            config.get('verify_ssl', True)
         )
 
         for i, message in enumerate(commit_messages, 1):
