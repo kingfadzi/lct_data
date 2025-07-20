@@ -3,6 +3,8 @@ import argparse
 import yaml
 from pathlib import Path
 import warnings
+from textwrap import fill
+from datetime import datetime
 
 def load_config(config_path='gitlab_config.yaml'):
     """
@@ -22,7 +24,7 @@ def load_config(config_path='gitlab_config.yaml'):
 
     # Set defaults for optional keys
     config.setdefault('base_url', 'https://gitlab.com/api/v4')
-    config.setdefault('verify_ssl', True)  # Default to verifying SSL
+    config.setdefault('verify_ssl', True)
 
     return config
 
@@ -65,6 +67,42 @@ def get_commit_messages_from_mr(project_id, private_token, mr_iid, base_url='htt
     commits = response.json()
     return [commit['message'] for commit in commits]
 
+def format_timestamp(timestamp_str):
+    """Format ISO timestamp to human-readable format"""
+    if not timestamp_str:
+        return "Unknown"
+    dt = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+    return dt.strftime('%Y-%m-%d %H:%M:%S')
+
+def print_header(text, width=80, char='='):
+    """Print a formatted header"""
+    print(f"\n{char * width}")
+    print(f"{text.center(width)}")
+    print(f"{char * width}\n")
+
+def print_section(title, content, indent=2):
+    """Print a section with formatted content"""
+    indent_str = ' ' * indent
+    print(f"\n{title.upper()}:")
+    if isinstance(content, list):
+        for item in content:
+            print(f"{indent_str}- {item}")
+    else:
+        print(f"{indent_str}{content}")
+
+def format_commit_message(message, width=80, indent=4):
+    """Format commit message with proper wrapping"""
+    indent_str = ' ' * indent
+    lines = message.split('\n')
+    formatted_lines = []
+    for line in lines:
+        if line.strip():
+            wrapped = fill(line, width=width-indent)
+            formatted_lines.append(f"{indent_str}{wrapped}")
+        else:
+            formatted_lines.append("")
+    return '\n'.join(formatted_lines)
+
 def main():
     parser = argparse.ArgumentParser(description='Get commit messages from latest GitLab merge request')
     parser.add_argument('--project-id', required=True, help='GitLab project ID')
@@ -85,31 +123,34 @@ def main():
             config.get('verify_ssl', True)
         )
 
-        mr_title = latest_mr['title']
-        mr_iid = latest_mr['iid']
-        merged_at = latest_mr['merged_at']
-
-        print(f"Latest merge request merged into main:")
-        print(f"Title: {mr_title}")
-        print(f"IID: {mr_iid}")
-        print(f"Merged at: {merged_at}")
-        print("\nCommit messages:")
-
         # Get all commit messages from this MR
         commit_messages = get_commit_messages_from_mr(
             args.project_id,
             config['private_token'],
-            mr_iid,
+            latest_mr['iid'],
             config['base_url'],
             config.get('verify_ssl', True)
         )
 
+        # Format and print the output
+        print_header("LATEST MERGE REQUEST DETAILS")
+
+        print_section("Project ID", args.project_id)
+        print_section("Merge Request Title", latest_mr['title'])
+        print_section("Merge Request IID", latest_mr['iid'])
+        print_section("Merge Request URL", latest_mr['web_url'])
+        print_section("Merged At", format_timestamp(latest_mr['merged_at']))
+        print_section("Author", f"{latest_mr['author']['name']} ({latest_mr['author']['username']})")
+
+        print_header("COMMIT MESSAGES", width=80, char='-')
         for i, message in enumerate(commit_messages, 1):
-            print(f"\nCommit #{i}:")
-            print(message)
+            print(f"\nCOMMIT #{i}:")
+            print(format_commit_message(message))
+            print("-" * 40)  # Separator between commits
 
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"\nERROR: {str(e)}")
+        exit(1)
 
 if __name__ == '__main__':
     main()
