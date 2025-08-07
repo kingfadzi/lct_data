@@ -13,13 +13,7 @@ with open("config.yaml", "r") as f:
     config = yaml.safe_load(f)
 
 JIRA_URL = config.get("jira_url", "").strip()
-JIRA_PROJECT_KEYS = config.get("jira_project_keys", [])
-
-if not JIRA_PROJECT_KEYS or not isinstance(JIRA_PROJECT_KEYS, list):
-    print("Error: jira_project_keys must be a non-empty list in config.yaml")
-    sys.exit(1)
-
-DEFAULT_PROJECT_KEY = JIRA_PROJECT_KEYS[0]
+DEFAULT_PROJECT_KEY = config.get("jira_project_key", "").strip()
 
 JIRA_API_TOKEN = os.getenv("JIRA_TOKEN")
 if not JIRA_API_TOKEN:
@@ -35,7 +29,7 @@ headers = {
 # --- CLI Argument Parsing ---
 parser = argparse.ArgumentParser(description="Fetch Git repositories linked to a Jira Fix Version")
 parser.add_argument("--fix-version", required=True, help="Name of the Jira Fix Version (e.g. 'Payments v1.4')")
-parser.add_argument("--project", default=DEFAULT_PROJECT_KEY, help=f"Jira project key (default: {DEFAULT_PROJECT_KEY})")
+parser.add_argument("--project", default=DEFAULT_PROJECT_KEY, help="Jira project key (default from config.yaml)")
 parser.add_argument("--application-type", default="gitlab", choices=["gitlab", "bitbucket"], help="Source control type")
 
 args = parser.parse_args()
@@ -70,40 +64,50 @@ def get_issues_for_fix_version(project_key, fix_version):
 
 
 def get_repos_from_issue(issue_id):
-    url = f"{JIRA_URL}/rest/dev-status/1.0/issue/detail"
-    params = {
-        "issueId": issue_id,
-        "dataType": "repository"  # No applicationType = match all integrations
-    }
-
-    print(f"   🐛 DEBUG: Calling dev-status API: {url} with {params}")
-    response = requests.get(url, headers=headers, params=params, verify=False)
-
-    if response.status_code == 404:
-        print("   ⚠️  Dev panel returned 404 — no development data.")
-        return set()
-
-    if response.status_code != 200:
-        print(f"   ❌ Failed to get dev-status info: {response.status_code} {response.text}")
-        return set()
-
-    try:
-        data = response.json()
-    except Exception as e:
-        print(f"   ❌ Failed to parse JSON: {e}")
-        return set()
-
-    print("   🐛 DEBUG: Raw dev-status response:")
-    print(json.dumps(data, indent=2))
-
+    KNOWN_APPLICATION_TYPES = ["gitlab", "bitbucket", "stash", "github"]
     repos = set()
-    for detail in data.get("detail", []):
-        for repo_entry in detail.get("repositories", []):
-            name = repo_entry.get("name")
-            if not name and repo_entry.get("url"):
-                name = repo_entry["url"].split("/")[-1].replace(".git", "")
-            if name:
-                repos.add(name)
+
+    for app_type in KNOWN_APPLICATION_TYPES:
+        url = f"{JIRA_URL}/rest/dev-status/1.0/issue/detail"
+        params = {
+            "issueId": issue_id,
+            "applicationType": app_type,
+            "dataType": "repository"
+        }
+
+        print(f"   🐛 DEBUG: Trying dev-status with applicationType='{app_type}'")
+
+        response = requests.get(url, headers=headers, params=params, verify=False)
+
+        if response.status_code == 404:
+            continue  # Try next app type
+
+        if response.status_code != 200:
+            print(f"   ❌ {app_type}: Failed ({response.status_code}): {response.text}")
+            continue
+
+        try:
+            data = response.json()
+        except Exception as e:
+            print(f"   ❌ Failed to parse JSON: {e}")
+            continue
+
+        if not data.get("detail"):
+            continue  # No data, try next
+
+        print(f"   ✅ Found data using applicationType='{app_type}'")
+        print(json.dumps(data, indent=2))
+
+        for detail in data["detail"]:
+            for repo_entry in detail.get("repositories", []):
+                name = repo_entry.get("name")
+                if not name and repo_entry.get("url"):
+                    name = repo_entry["url"].split("/")[-1].replace(".git", "")
+                if name:
+                    repos.add(name)
+
+        if repos:
+            break  # Exit after finding first successful result
 
     return repos
 
