@@ -4,6 +4,7 @@ import os
 import sys
 import urllib3
 import argparse
+import json
 
 # --- Ignore self-signed cert warnings ---
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -13,7 +14,13 @@ with open("config.yaml", "r") as f:
     config = yaml.safe_load(f)
 
 JIRA_URL = config.get("jira_url", "").strip()
-DEFAULT_PROJECT_KEY = config.get("jira_project_key", "").strip()
+JIRA_PROJECT_KEYS = config.get("jira_project_keys", [])
+
+if not JIRA_PROJECT_KEYS or not isinstance(JIRA_PROJECT_KEYS, list):
+    print("Error: jira_project_keys must be a non-empty list in config.yaml")
+    sys.exit(1)
+
+DEFAULT_PROJECT_KEY = JIRA_PROJECT_KEYS[0]
 
 JIRA_API_TOKEN = os.getenv("JIRA_TOKEN")
 if not JIRA_API_TOKEN:
@@ -27,10 +34,10 @@ headers = {
 }
 
 # --- CLI Argument Parsing ---
-parser = argparse.ArgumentParser(description="Fetch Git repositories linked to a Jira Fix Version")
+parser = argparse.ArgumentParser(description="Fetch Git repositories and commit URLs linked to a Jira Fix Version")
 parser.add_argument("--fix-version", required=True, help="Name of the Jira Fix Version (e.g. 'Payments v1.4')")
-parser.add_argument("--project", default=DEFAULT_PROJECT_KEY, help="Jira project key (default from config.yaml)")
-parser.add_argument("--application-type", default="gitlab", choices=["gitlab", "bitbucket"], help="Source control type")
+parser.add_argument("--project", default=DEFAULT_PROJECT_KEY, help=f"Jira project key (default: {DEFAULT_PROJECT_KEY})")
+parser.add_argument("--application-type", default="stash", help="Source control type (e.g., stash, gitlab, bitbucket)")
 
 args = parser.parse_args()
 FIX_VERSION = args.fix_version.strip()
@@ -63,54 +70,74 @@ def get_issues_for_fix_version(project_key, fix_version):
     return issues
 
 
-def get_repos_from_issue(issue_id):
-    KNOWN_APPLICATION_TYPES = ["gitlab", "bitbucket", "stash", "github"]
+def infer_repos_from_commits(detail):
     repos = set()
-
-    for app_type in KNOWN_APPLICATION_TYPES:
-        url = f"{JIRA_URL}/rest/dev-status/1.0/issue/detail"
-        params = {
-            "issueId": issue_id,
-            "applicationType": app_type,
-            "dataType": "repository"
-        }
-
-        print(f"   🐛 DEBUG: Trying dev-status with applicationType='{app_type}'")
-
-        response = requests.get(url, headers=headers, params=params, verify=False)
-
-        if response.status_code == 404:
-            continue  # Try next app type
-
-        if response.status_code != 200:
-            print(f"   ❌ {app_type}: Failed ({response.status_code}): {response.text}")
-            continue
-
-        try:
-            data = response.json()
-        except Exception as e:
-            print(f"   ❌ Failed to parse JSON: {e}")
-            continue
-
-        if not data.get("detail"):
-            continue  # No data, try next
-
-        print(f"   ✅ Found data using applicationType='{app_type}'")
-        print(json.dumps(data, indent=2))
-
-        for detail in data["detail"]:
-            for repo_entry in detail.get("repositories", []):
-                name = repo_entry.get("name")
-                if not name and repo_entry.get("url"):
-                    name = repo_entry["url"].split("/")[-1].replace(".git", "")
-                if name:
-                    repos.add(name)
-
-        if repos:
-            break  # Exit after finding first successful result
-
+    for commit in detail.get("commits", []):
+        url = commit.get("url", "")
+        if url:
+            parts = url.split("/")
+            if "commit" in parts:
+                idx = parts.index("commit")
+                if idx > 1:
+                    repo_name = parts[idx - 1]
+                    repos.add(repo_name)
     return repos
 
+
+def get_repos_and_commit_urls_from_issue(issue_id):
+    url = f"{JIRA_URL}/rest/dev-status/1.0/issue/detail"
+    params = {
+        "issueId": issue_id,
+        "applicationType": APPLICATION_TYPE,
+        "dataType": "all"
+    }
+
+    print(f"   🐛 DEBUG: Calling dev-status API with params: {params}")
+    response = requests.get(url, headers=headers, params=params, verify=False)
+
+    if response.status_code == 404:
+        print("   ⚠️  Dev panel returned 404 — no development data.")
+        return set(), []
+
+    if response.status_code != 200:
+        print(f"   ❌ Failed to get dev-status info: {response.status_code} {response.text}")
+        return set(), []
+
+    try:
+        data = response.json()
+    except Exception as e:
+        print(f"   ❌ Failed to parse JSON: {e}")
+        return set(), []
+
+    print("   🐛 DEBUG: Raw dev-status response:")
+    print(json.dumps(data, indent=2))
+
+    repos = set()
+    commit_urls = []
+
+    for detail in data.get("detail", []):
+        # 1. Check for repositories explicitly
+        for repo_entry in detail.get("repositories", []):
+            name = repo_entry.get("name")
+            if not name and repo_entry.get("url"):
+                name = repo_entry["url"].split("/")[-1].replace(".git", "")
+            if name:
+                repos.add(name)
+
+        # 2. If no repositories, infer from commits
+        if not repos:
+            inferred = infer_repos_from_commits(detail)
+            if inferred:
+                print(f"   🐛 Inferred repo(s) from commit URLs: {sorted(inferred)}")
+                repos.update(inferred)
+
+        # 3. Collect all commit URLs
+        for commit in detail.get("commits", []):
+            url = commit.get("url")
+            if url:
+                commit_urls.append(url)
+
+    return repos, commit_urls
 
 
 def main():
@@ -119,23 +146,36 @@ def main():
     print(f"Found {len(issues)} issues.")
 
     all_repos = set()
+    all_commit_urls = set()
 
     for issue in issues:
         issue_key = issue["key"]
         issue_id = issue["id"]
-        print(f"→ Checking linked repositories for {issue_key}...")
-        repos = get_repos_from_issue(issue_id)
+        print(f"→ Checking linked repositories and commits for {issue_key}...")
+        repos, commit_urls = get_repos_and_commit_urls_from_issue(issue_id)
         if repos:
-            print(f"   🔗 Found: {sorted(repos)}")
+            print(f"   🔗 Repos: {sorted(repos)}")
             all_repos.update(repos)
         else:
-            print("   ⚠️  No repositories linked.")
+            print("   ⚠️  No repositories found or inferred.")
+
+        if commit_urls:
+            print(f"   🔗 Commit URLs:")
+            for url in commit_urls:
+                print(f"      {url}")
+            all_commit_urls.update(commit_urls)
+        else:
+            print("   ⚠️  No commit URLs found.")
 
     print("\n📦 Unique Repositories involved in Fix Version:")
     for repo in sorted(all_repos):
         print(f" - {repo}")
 
-    print(f"\n✅ Done. {len(all_repos)} unique repositories found.")
+    print("\n🔗 Unique Commit URLs involved in Fix Version:")
+    for url in sorted(all_commit_urls):
+        print(f" - {url}")
+
+    print(f"\n✅ Done. {len(all_repos)} unique repositories and {len(all_commit_urls)} unique commit URLs found.")
 
 
 if __name__ == "__main__":
