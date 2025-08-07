@@ -1,0 +1,22 @@
+flowchart TD
+    subgraph Stage["Governance Stage: <Insert Stage Name>"]
+        EC[Entry Criteria]
+        A1[Product Owner]
+        A2[Control SME]
+
+        A1 --> AC1[Action: Submit metadata]
+        A2 --> AC2[Action: Review controls]
+
+        AC1 --> E1[Evidence: LCD entry]
+        AC2 --> E2[Evidence: SME review note]
+
+        E1 --> P[Policy Evaluation]
+        E2 --> P
+
+        R[Identified Risks] --> P
+        C[Controls Required] --> P
+
+        P --> D[Decision: All conditions met?]
+        D -->|Yes| XC[Exit Criteria]
+        D -->|No| B[Blocked: Await resolution]
+    end
