@@ -73,24 +73,40 @@ def get_repos_from_issue(issue_id):
     url = f"{JIRA_URL}/rest/dev-status/1.0/issue/detail"
     params = {
         "issueId": issue_id,
-        "applicationType": APPLICATION_TYPE,
-        "dataType": "repository"
+        "dataType": "repository"  # No applicationType = match all integrations
     }
 
+    print(f"   🐛 DEBUG: Calling dev-status API: {url} with {params}")
     response = requests.get(url, headers=headers, params=params, verify=False)
+
     if response.status_code == 404:
+        print("   ⚠️  Dev panel returned 404 — no development data.")
         return set()
-    response.raise_for_status()
+
+    if response.status_code != 200:
+        print(f"   ❌ Failed to get dev-status info: {response.status_code} {response.text}")
+        return set()
+
+    try:
+        data = response.json()
+    except Exception as e:
+        print(f"   ❌ Failed to parse JSON: {e}")
+        return set()
+
+    print("   🐛 DEBUG: Raw dev-status response:")
+    print(json.dumps(data, indent=2))
 
     repos = set()
-    for detail in response.json().get("detail", []):
+    for detail in data.get("detail", []):
         for repo_entry in detail.get("repositories", []):
             name = repo_entry.get("name")
             if not name and repo_entry.get("url"):
                 name = repo_entry["url"].split("/")[-1].replace(".git", "")
             if name:
                 repos.add(name)
+
     return repos
+
 
 
 def main():
